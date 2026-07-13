@@ -1,29 +1,60 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090b12">
-<title>Ephemera Chat</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:#090b12;color:#f5f6fb;min-height:100vh}button,input,textarea{font:inherit}.hidden{display:none!important}.landing{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 15%,#24204e55,transparent 38rem)}.card{width:min(680px,100%);background:#111520;border:1px solid #272c3d;border-radius:24px;padding:36px;box-shadow:0 24px 80px #0008}.logo{font-size:30px;font-weight:800}.muted{color:#9ba2b5;line-height:1.6}.primary,.secondary,.icon{border:0;border-radius:12px;cursor:pointer}.primary{background:#8b7cf6;color:white;padding:13px 18px;font-weight:700}.secondary{background:#1a1f2e;color:#e9eaf2;padding:12px 16px;border:1px solid #30364a}.join{display:flex;gap:10px;margin-top:18px}.join input{flex:1;background:#0c0f17;border:1px solid #30364a;color:white;padding:13px;border-radius:12px}.room{height:100vh;display:grid;grid-template-columns:1fr 260px}.chat{display:grid;grid-template-rows:auto 1fr auto;min-width:0}.top{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #252a3a;background:#0e121b}.top h2{font-size:16px;margin:0}.status{font-size:12px;color:#70dfc0}.actions{display:flex;gap:8px}.messages{overflow:auto;padding:24px;display:flex;flex-direction:column;gap:14px}.empty{margin:auto;text-align:center;color:#8990a3}.msg{max-width:min(680px,82%);display:flex;gap:10px}.msg.self{margin-left:auto;flex-direction:row-reverse}.avatar{width:34px;height:34px;flex:0 0 34px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:hsl(var(--h) 55% 42%)}.bubble{background:#171c29;border:1px solid #282e40;border-radius:15px;padding:10px 13px;word-break:break-word}.self .bubble{background:#5d50c7;border-color:#7568dc}.name{font-size:11px;color:#aeb4c4;margin:0 0 4px}.meta{display:flex;gap:9px;margin-top:5px;font-size:11px;color:#7f879a}.meta button{background:none;border:0;color:inherit;padding:0;cursor:pointer}.quote{border-left:2px solid #9d91ff;padding-left:8px;margin-bottom:7px;font-size:12px;opacity:.85}.reactions{display:flex;gap:5px;margin-top:7px}.reaction{background:#242a3b;border:1px solid #394056;border-radius:999px;padding:2px 7px;font-size:12px}.system{text-align:center;color:#767e91;font-size:12px}.composer{padding:12px 18px 18px;border-top:1px solid #252a3a;background:#0e121b}.replybar{padding:8px 10px;background:#171c29;border-radius:9px;margin-bottom:8px;font-size:12px}.compose-row{display:flex;gap:8px;align-items:end}.compose-row textarea{flex:1;resize:none;max-height:120px;background:#151a27;color:white;border:1px solid #30364a;border-radius:14px;padding:12px;outline:none}.icon{background:#1a1f2e;color:white;padding:11px 13px}.people{border-left:1px solid #252a3a;background:#0e121b;padding:18px;overflow:auto}.people h3{font-size:14px;margin-top:0}.person{display:flex;align-items:center;gap:9px;padding:8px 0}.person span{font-size:13px}.typing{font-size:12px;color:#8f96a8;padding:0 24px 8px}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#242a3a;padding:10px 14px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none}.toast.show{opacity:1}@media(max-width:760px){.room{grid-template-columns:1fr}.people{display:none}.card{padding:24px}.join{flex-direction:column}.messages{padding:16px}.top .secondary.hide-mobile{display:none}.msg{max-width:92%}}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090b12">
+  <meta name="description" content="Ephemera is an anonymous peer-to-peer chat with temporary text, voice, and video calls.">
+  <meta name="referrer" content="no-referrer">
+  <title>Ephemera Chat</title>
+  <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-<section id="landing" class="landing"><div class="card"><div class="logo">◈ Ephemera</div><h1>Temporary rooms. Real-time conversation.</h1><p class="muted">Anonymous peer-to-peer chat. Nothing is saved. Open the same room link in another tab or device and each visitor appears as a separate guest.</p><button id="create" class="primary">Create a room</button><form id="join" class="join"><input id="link" placeholder="Paste a room link"><button class="secondary">Join room</button></form><p id="error" class="muted"></p></div></section>
-<section id="room" class="room hidden"><main class="chat"><header class="top"><div><h2 id="roomName">Room</h2><span id="status" class="status">Connecting…</span></div><div class="actions"><button id="copy" class="secondary hide-mobile">Copy link</button><button id="clear" class="secondary">Clear my view</button><button id="leave" class="secondary">Leave</button></div></header><div id="messages" class="messages"><div id="empty" class="empty"><h3>No messages yet</h3><p>Messages appear only from the moment you join.</p></div></div><div id="typing" class="typing"></div><footer class="composer"><div id="replybar" class="replybar hidden"></div><div class="compose-row"><button id="emoji" class="icon">😊</button><button id="fileBtn" class="icon">📎</button><input id="file" type="file" class="hidden"><textarea id="text" rows="1" maxlength="4000" placeholder="Message the room"></textarea><button id="send" class="primary">Send</button></div></footer></main><aside class="people"><h3>People (<span id="count">1</span>)</h3><div id="people"></div><p class="muted" style="font-size:12px">Each tab and device receives its own temporary identity.</p></aside></section><div id="toast" class="toast"></div>
-<script type="module">
-import {joinRoom,selfId} from 'https://esm.sh/trystero@0.25.2';
-const $=id=>document.getElementById(id), landing=$('landing'), roomEl=$('room'), messages=$('messages'), empty=$('empty'), people=$('people'), typing=$('typing');
-let room=null, peers=new Set(), reply=null, typingTimer=null, peerTyping=new Map(), msgs=new Map();
-const words=['Amber','Azure','Bright','Calm','Cosmic','Golden','Minty','Neon','Quiet','Silver','Swift','Velvet'];const animals=['Fox','Owl','Otter','Panda','Raven','Tiger','Wolf','Moth','Bear','Crane'];
-function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}function user(id){const h=hash(id);return{id,name:words[h%words.length]+' '+animals[(h>>>7)%animals.length]+' · '+id.slice(-2).toUpperCase(),initials:words[h%words.length][0]+animals[(h>>>7)%animals.length][0],h:h%360}}
-const me=user(selfId);function toast(t){$('toast').textContent=t;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),1500)}
-function token(){const a=new Uint8Array(18);crypto.getRandomValues(a);return [...a].map(x=>x.toString(36).padStart(2,'0')).join('')}function parse(){const m=location.hash.match(/^#\/room\/([^/]+)\/([^/]+)$/);return m?{id:m[1],secret:m[2]}:null}function open(r){location.hash=`#/room/${r.id}/${r.secret}`}
-$('create').onclick=()=>open({id:token().slice(0,18),secret:token()});$('join').onsubmit=e=>{e.preventDefault();try{const u=new URL($('link').value);const m=u.hash.match(/^#\/room\/([^/]+)\/([^/]+)$/);if(!m)throw 0;open({id:m[1],secret:m[2]})}catch{$('error').textContent='Paste a complete room link.'}};
-function renderPeople(){people.innerHTML='';[me,...[...peers].map(user)].forEach((p,i)=>{const d=document.createElement('div');d.className='person';d.innerHTML=`<b class="avatar" style="--h:${p.h}">${p.initials}</b><span>${p.name}${i===0?' (you)':''}</span>`;people.append(d)});$('count').textContent=String(peers.size+1)}
-function addSystem(t){empty.classList.add('hidden');const d=document.createElement('div');d.className='system';d.textContent=t;messages.append(d);messages.scrollTop=messages.scrollHeight}
-function addMsg(data,peerId=selfId){if(msgs.has(data.id))return;msgs.set(data.id,data);empty.classList.add('hidden');const p=user(peerId),wrap=document.createElement('article');wrap.className='msg'+(peerId===selfId?' self':'');wrap.dataset.id=data.id;const body=data.file?`<a href="${data.file.url}" download="${data.file.name}" style="color:inherit">📎 ${data.file.name}</a>`:escapeHtml(data.text);wrap.innerHTML=`<b class="avatar" style="--h:${p.h}">${p.initials}</b><div><div class="name">${p.name}</div><div class="bubble">${data.reply?`<div class="quote">${escapeHtml(data.reply)}</div>`:''}${body}</div><div class="meta"><span>${new Date(data.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span><button class="reply">Reply</button><button class="react">React</button></div><div class="reactions"></div></div>`;wrap.querySelector('.reply').onclick=()=>{reply=data.file?'Attachment: '+data.file.name:data.text;$('replybar').textContent='Replying to: '+reply;$('replybar').classList.remove('hidden');$('text').focus()};wrap.querySelector('.react').onclick=()=>sendReaction({id:data.id,emoji:'👍'});messages.append(wrap);messages.scrollTop=messages.scrollHeight}
-function escapeHtml(s=''){const d=document.createElement('div');d.textContent=s;return d.innerHTML}function showReaction(x){const el=messages.querySelector(`[data-id="${CSS.escape(x.id)}"] .reactions`);if(el){const s=document.createElement('span');s.className='reaction';s.textContent=x.emoji;el.append(s)}}
-function setup(desc){if(room)room.leave();landing.classList.add('hidden');roomEl.classList.remove('hidden');$('roomName').textContent='#'+desc.id.slice(0,10);peers=new Set();msgs.clear();messages.innerHTML='';messages.append(empty);empty.classList.remove('hidden');renderPeople();room=joinRoom({appId:'com.maksoftwares.ephemera.v1',password:desc.secret,relayConfig:{redundancy:3}},desc.id);const textA=room.makeAction('text-v1'),typeA=room.makeAction('typing-v1'),reactA=room.makeAction('reaction-v1'),fileA=room.makeAction('file-v1');window.sendReaction=x=>{showReaction(x);reactA.send(x)};textA.onMessage=(x,{peerId})=>addMsg(x,peerId);reactA.onMessage=x=>showReaction(x);typeA.onMessage=(x,{peerId})=>{if(x.on){peerTyping.set(peerId,Date.now());typing.textContent=user(peerId).name+' is typing…';setTimeout(()=>{if(Date.now()-(peerTyping.get(peerId)||0)>1800)typing.textContent=''},2000)}else{peerTyping.delete(peerId);typing.textContent=''}};fileA.onMessage=(blob,{peerId,meta})=>{const url=URL.createObjectURL(blob);addMsg({id:meta.id,time:meta.time,reply:meta.reply,file:{name:meta.name,url}},peerId)};room.onPeerJoin=id=>{peers.add(id);renderPeople();addSystem(user(id).name+' joined')};room.onPeerLeave=id=>{peers.delete(id);renderPeople();addSystem(user(id).name+' left')};$('status').textContent='Connected · encrypted peer-to-peer';$('send').onclick=()=>{const text=$('text').value.trim();if(!text)return;const x={id:crypto.randomUUID(),text,time:Date.now(),reply};addMsg(x);textA.send(x);$('text').value='';reply=null;$('replybar').classList.add('hidden');typeA.send({on:false})};$('text').oninput=()=>{typeA.send({on:true});clearTimeout(typingTimer);typingTimer=setTimeout(()=>typeA.send({on:false}),1200)};$('text').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('send').click()}};$('emoji').onclick=()=>{$('text').value+=' 😊';$('text').focus()};$('fileBtn').onclick=()=>$('file').click();$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;if(f.size>10*1024*1024){toast('File limit is 10 MB');return}const meta={id:crypto.randomUUID(),name:f.name,time:Date.now(),reply};addMsg({...meta,file:{name:f.name,url:URL.createObjectURL(f)}});await fileA.send(f,{meta});e.target.value=''};}
-$('copy').onclick=async()=>{await navigator.clipboard.writeText(location.href);toast('Room link copied')};$('clear').onclick=()=>{messages.innerHTML='';messages.append(empty);empty.classList.remove('hidden');msgs.clear()};$('leave').onclick=()=>{room?.leave();room=null;history.replaceState(null,'',location.pathname);roomEl.classList.add('hidden');landing.classList.remove('hidden')};addEventListener('hashchange',()=>{const p=parse();if(p)setup(p)});const initial=parse();if(initial)setup(initial);
-</script>
-</body></html>
+  <section id="landing" class="landing">
+    <div class="card">
+      <div class="logo">◈ Ephemera</div>
+      <h1>Temporary rooms. Real conversation.</h1>
+      <p class="muted">Anonymous peer-to-peer chat, voice calls, and video calls. Nothing is saved. Each open tab or device is a separate guest.</p>
+      <div class="features"><span class="feature">No accounts</span><span class="feature">No message history</span><span class="feature">Encrypted P2P</span><span class="feature">Voice &amp; video</span></div>
+      <button id="create" class="primary">Create a room</button>
+      <form id="join" class="join"><input id="link" aria-label="Room link" placeholder="Paste a room link"><button class="secondary">Join room</button></form>
+      <p id="error" class="muted" role="alert"></p>
+    </div>
+  </section>
+
+  <section id="room" class="room hidden">
+    <main class="chat">
+      <header class="top">
+        <div><h2 id="roomName">Room</h2><span id="status" class="status">Connecting…</span></div>
+        <div class="actions"><button id="peopleToggle" class="secondary mobile-people">People</button><button id="copy" class="secondary hide-mobile">Copy link</button><button id="clear" class="secondary">Clear view</button><button id="leave" class="secondary">Leave</button></div>
+      </header>
+      <div id="messages" class="messages"><div id="empty" class="empty"><h3>No messages yet</h3><p>Messages appear only from the moment you join.</p></div></div>
+      <div id="typing" class="typing" aria-live="polite"></div>
+      <footer class="composer"><div id="replybar" class="replybar hidden"><span id="replyText"></span><button id="cancelReply" class="icon" aria-label="Cancel reply">×</button></div><div class="compose-row"><button id="emoji" class="icon" aria-label="Add emoji">😊</button><button id="fileBtn" class="icon" aria-label="Attach file">📎</button><input id="file" type="file" class="hidden"><textarea id="text" rows="1" maxlength="4000" placeholder="Message the room"></textarea><button id="send" class="primary">Send</button></div></footer>
+    </main>
+    <aside id="peoplePanel" class="people"><h3>People (<span id="count">1</span>)</h3><div id="people"></div><p class="muted" style="font-size:12px">Use the phone or camera beside a participant for a private 1-to-1 call.</p></aside>
+  </section>
+
+  <div id="incomingModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="incomingTitle">
+    <div class="call-card"><div id="incomingAvatar" class="call-avatar ringing">?</div><p id="incomingType">Incoming call</p><h2 id="incomingTitle">Anonymous guest</h2><p>Microphone and camera access are requested only after you accept.</p><div class="incoming-actions"><button id="declineCall" class="danger" aria-label="Decline call">✕</button><button id="acceptCall" class="accept" aria-label="Accept call">☎</button></div></div>
+  </div>
+
+  <div id="outgoingModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="call-card"><div id="outgoingAvatar" class="call-avatar ringing">?</div><p id="outgoingType">Calling…</p><h2 id="outgoingName">Anonymous guest</h2><p id="outgoingStatus">Waiting for an answer</p><div class="incoming-actions"><button id="cancelCall" class="danger" aria-label="Cancel call">✕</button></div></div>
+  </div>
+
+  <section id="activeCall" class="active-call hidden" aria-label="Active call">
+    <div class="video-stage">
+      <video id="remoteVideo" class="remote-video hidden" autoplay playsinline></video>
+      <div id="voiceStage" class="voice-stage"><div id="activeAvatar" class="call-avatar">?</div><h2 id="activeName">Anonymous guest</h2><p id="activeMode" class="muted">Voice call</p></div>
+      <video id="localVideo" class="local-video hidden" autoplay muted playsinline></video>
+      <div class="call-info"><strong id="callPeer">Anonymous guest</strong><span id="callTimer">00:00</span></div>
+      <div id="mediaNote" class="media-note hidden">Tap the video to resume audio</div>
+    </div>
+    <div class="call-controls"><button id="muteBtn" class="control" aria-label="Mute microphone">🎙</button><button id="cameraBtn" class="control hidden" aria-label="Turn camera off">📹</button><button id="hangupBtn" class="control hangup" aria-label="End call">☎</button></div>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
