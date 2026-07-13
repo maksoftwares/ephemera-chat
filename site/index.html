@@ -49,7 +49,7 @@
       <div id="voiceStage" class="voice-stage"><div id="activeAvatar" class="call-avatar">?</div><h2 id="activeName">Anonymous guest</h2><p id="activeMode" class="muted">Voice call</p></div>
       <video id="localVideo" class="local-video hidden" autoplay muted playsinline></video>
       <div class="call-info"><strong id="callPeer">Anonymous guest</strong><span id="callTimer">00:00</span></div>
-      <div id="mediaNote" class="media-note hidden">Tap the video to resume audio</div>
+      <button id="mediaNote" class="media-note hidden" onclick="document.getElementById('remoteVideo').play().then(()=>this.classList.add('hidden'))">Tap to play call audio</button>
     </div>
     <div class="call-controls"><button id="muteBtn" class="control" aria-label="Mute microphone">🎙</button><button id="cameraBtn" class="control hidden" aria-label="Turn camera off">📹</button><button id="hangupBtn" class="control hangup" aria-label="End call">☎</button></div>
   </section>
