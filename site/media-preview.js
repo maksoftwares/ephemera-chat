@@ -62,7 +62,8 @@ addEventListener('keydown',event=>{if(event.key==='Escape')closeViewer()});
 addEventListener('popstate',()=>{if(!viewer.classList.contains('hidden'))closeViewer(true)});
 
 async function enhanceAttachment(anchor){
-  if(!(anchor instanceof HTMLAnchorElement)||anchor.dataset.mediaEnhanced==='true')return;
+  if(!(anchor instanceof HTMLAnchorElement))return;
+  if(anchor.dataset.mediaEnhanced==='true'||anchor.classList.contains('media-download-button')||anchor.closest('.media-attachment'))return;
   const url=anchor.href;
   if(!url.startsWith('blob:'))return;
   anchor.dataset.mediaEnhanced='true';
@@ -70,6 +71,7 @@ async function enhanceAttachment(anchor){
   const name=anchor.getAttribute('download')||anchor.textContent?.replace(/^📎\s*/,'').trim()||'Attachment';
   let blob=null;
   try{blob=await fetch(url).then(response=>response.blob())}catch{}
+  if(!anchor.isConnected)return;
   const kind=kindOf(name,blob?.type||'');
   if(kind==='file'){
     anchor.classList.add('attachment-download');
@@ -121,6 +123,7 @@ async function enhanceAttachment(anchor){
   download.href=url;
   download.download=name;
   download.className='media-download-button';
+  download.dataset.mediaEnhanced='true';
   download.textContent='Download';
   footer.append(details,download);
   card.append(preview,footer);
@@ -129,8 +132,8 @@ async function enhanceAttachment(anchor){
 
 function scan(root=document){
   const anchors=[];
-  if(root instanceof HTMLAnchorElement)anchors.push(root);
-  if(root.querySelectorAll)anchors.push(...root.querySelectorAll('a[download][href^="blob:"]'));
+  if(root instanceof HTMLAnchorElement&&!root.classList.contains('media-download-button')&&!root.closest('.media-attachment'))anchors.push(root);
+  if(root.querySelectorAll)anchors.push(...root.querySelectorAll('a[download][href^="blob:"]:not(.media-download-button)'));
   anchors.forEach(anchor=>enhanceAttachment(anchor));
 }
 const messages=document.getElementById('messages');
