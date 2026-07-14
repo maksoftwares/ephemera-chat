@@ -1,5 +1,5 @@
-const imageExtensions=new Set(['jpg','jpeg','png','gif','webp','avif','bmp','heic','heif']);
-const videoExtensions=new Set(['mp4','webm','ogv','ogg','mov','m4v']);
+const imageExtensions=new Set(['jpg','jpeg','png','gif','webp','avif','bmp']);
+const videoExtensions=new Set(['mp4','webm','ogv','mov','m4v']);
 const audioExtensions=new Set(['mp3','wav','ogg','oga','m4a','aac','flac','opus','weba']);
 const trackedBlobUrls=new Set();
 
