@@ -140,7 +140,7 @@ async function beginDirectCall(){
 }
 function startOutgoingCall(peerId,mode){
   if(!peers.has(peerId))return toast('That participant is no longer online.');if(callState||incomingInvite)return toast('Finish the current call first.');
-  forceClosePeoplePanel();const callId=crypto.randomUUID();callState={kind:'direct',callId,peerId,mode,direction:'outgoing',startedAt:null};setCallPerson('outgoing',peerId);$('outgoingType').textContent=mode==='video'?'Video calling…':'Voice calling…';$('outgoingStatus').textContent='Waiting for an answer';$('outgoingModal').classList.remove('hidden');sendSignal({type:'invite',callId,mode},peerId);
+  closePeoplePanel();const callId=crypto.randomUUID();callState={kind:'direct',callId,peerId,mode,direction:'outgoing',startedAt:null};setCallPerson('outgoing',peerId);$('outgoingType').textContent=mode==='video'?'Video calling…':'Voice calling…';$('outgoingStatus').textContent='Waiting for an answer';$('outgoingModal').classList.remove('hidden');sendSignal({type:'invite',callId,mode},peerId);
   callTimeout=setTimeout(()=>{if(callState?.callId===callId){sendSignal({type:'cancel',callId},peerId);cleanupCall('No answer.')}},30000)
 }
 function receiveDirectInvite(data,peerId){
@@ -181,7 +181,7 @@ function publishGroupMembers(){
 }
 async function startGroupCall(mode){
   if(peers.size===0)return toast('Invite at least one other person before starting a group call.');if(callState||incomingInvite)return toast('Finish the current call first.');
-  forceClosePeoplePanel();const callId=crypto.randomUUID();callState={kind:'group',callId,mode,hostId:selfId,members:new Set([selfId]),streamedPeers:new Set(),startedAt:null};
+  closePeoplePanel();const callId=crypto.randomUUID();callState={kind:'group',callId,mode,hostId:selfId,members:new Set([selfId]),streamedPeers:new Set(),startedAt:null};
   try{localStream=await acquireMedia(mode);if(!callState)return localStream.getTracks().forEach(track=>track.stop());showGroupCallUi();for(const peerId of peers)sendSignal({type:'group-invite',callId,mode},peerId);toast(`Group ${mode==='video'?'video':'voice'} call started.`)}catch(error){cleanupCall(error instanceof Error?error.message:'Could not access your microphone or camera.')}
 }
 function receiveGroupInvite(data,peerId){
@@ -216,7 +216,7 @@ function handlePeerStream(stream,peerId,metadata){
   if(callState.kind==='direct'&&peerId===callState.peerId&&metadata?.kind==='ephemera-call'){
     remoteStream=stream;const video=$('remoteVideo');video.srcObject=stream;const play=()=>video.play().then(()=>$('mediaNote').classList.add('hidden')).catch(()=>$('mediaNote').classList.remove('hidden'));play();video.onclick=play;return
   }
-  if(callState.kind==='group'&&metadata?.kind==='ephemera-group-call'&&callState.members.has(peerId))createGroupTile(peerId,stream,false)
+  if(callState.kind==='group'&&metadata?.kind==='ephemera-group-call'){callState.members.add(peerId);createGroupTile(peerId,stream,false);updateGroupHeader()}
 }
 
 function setup(desc){
