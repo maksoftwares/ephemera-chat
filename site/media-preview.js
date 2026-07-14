@@ -144,5 +144,6 @@ function revokeTrackedUrls(){
   trackedBlobUrls.clear();
 }
 document.getElementById('clear')?.addEventListener('click',()=>setTimeout(revokeTrackedUrls,0));
+document.getElementById('leave')?.addEventListener('click',()=>setTimeout(revokeTrackedUrls,0));
 addEventListener('hashchange',revokeTrackedUrls);
 addEventListener('beforeunload',revokeTrackedUrls);
