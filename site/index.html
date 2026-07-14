@@ -18,17 +18,22 @@
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./pwa.css">
   <link rel="stylesheet" href="./media-preview.css">
+  <link rel="stylesheet" href="./room-history.css">
 </head>
 <body>
   <section class="landing" id="landing">
     <div class="card">
       <div class="logo">◈ Ephemera</div>
       <h1>Temporary rooms. Real conversation.</h1>
-      <p class="muted">Anonymous peer-to-peer chat, private calls, and room-wide voice or video calls. Nothing is saved. Each open tab or device is a separate guest.</p>
+      <p class="muted">Anonymous peer-to-peer chat, private calls, and room-wide voice or video calls. Messages and media are never saved. Room shortcuts can stay only on this device.</p>
       <div class="features"><span class="feature">No accounts</span><span class="feature">No message history</span><span class="feature">Encrypted P2P</span><span class="feature">Group calls</span><span class="feature">Installable PWA</span></div>
       <div class="landing-actions"><button class="primary" id="create">Create a room</button><button class="secondary install-button hidden" data-install type="button">Install app</button></div>
       <form class="join" id="join"><input aria-label="Room link" id="link" placeholder="Paste a room link"><button class="secondary">Join room</button></form>
       <p class="muted" id="error" role="alert"></p>
+      <section class="room-history hidden" id="roomHistorySection" aria-labelledby="roomHistoryTitle">
+        <div class="room-history-header"><div><h2 id="roomHistoryTitle">Your rooms</h2><p>Names and room links are saved only in this browser. Chat content is never stored.</p></div><button class="room-history-clear" id="clearRoomHistory" type="button">Clear all</button></div>
+        <div class="room-history-list" id="roomHistoryList"></div>
+      </section>
     </div>
   </section>
 
@@ -39,6 +44,7 @@
         <div class="actions" aria-label="Room actions">
           <button class="secondary mobile-people" id="peopleToggle" type="button">People</button>
           <button class="secondary invite-action" id="inviteBtn" type="button">Invite</button>
+          <button class="secondary room-rename-action" id="renameRoomBtn" type="button">Rename</button>
           <button class="secondary install-button hidden" data-install type="button">Install</button>
           <button class="secondary" id="notifyBtn" type="button">Alerts</button>
           <button class="secondary hide-mobile" id="copy" type="button">Copy link</button>
@@ -85,6 +91,7 @@
 
   <div aria-live="polite" class="toast" id="toast" role="status"></div>
   <script src="./app.js" type="module"></script>
+  <script src="./room-history.js" type="module"></script>
   <script src="./media-preview.js" type="module"></script>
   <script src="./call-experience.js" type="module"></script>
   <script src="./pwa.js" type="module"></script>
