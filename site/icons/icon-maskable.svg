@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Ephemera">
+  <defs><linearGradient id="g" x1="120" y1="100" x2="392" y2="412" gradientUnits="userSpaceOnUse"><stop stop-color="#9b8cff"/><stop offset="1" stop-color="#63e0c1"/></linearGradient></defs>
+  <rect width="512" height="512" fill="#090b12"/>
+  <path d="M256 112 390 246 256 380 122 246 256 112Z" fill="url(#g)"/>
+  <path d="M187 202h138c22 0 40 18 40 40v46c0 22-18 40-40 40h-58l-45 37 11-37h-46c-22 0-40-18-40-40v-46c0-22 18-40 40-40Z" fill="#10131e"/>
+  <circle cx="219" cy="264" r="11" fill="#f6f7fb"/><circle cx="256" cy="264" r="11" fill="#f6f7fb"/><circle cx="293" cy="264" r="11" fill="#f6f7fb"/>
+</svg>
