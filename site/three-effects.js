@@ -34,7 +34,7 @@ async function boot(){
     return{host,layer,renderer,width:1,height:1,resizeObserver:null};
   }
 
-  function attachResize(surface,camera){
+  function attachResize(surface,camera,onResize){
     const resize=()=>{
       const rect=surface.host.getBoundingClientRect();
       const width=Math.max(1,Math.floor(rect.width));
@@ -44,6 +44,7 @@ async function boot(){
       surface.renderer.setSize(width,height,false);
       camera.aspect=width/height;
       camera.updateProjectionMatrix();
+      onResize?.(width,height);
     };
     surface.resizeObserver=new ResizeObserver(resize);
     surface.resizeObserver.observe(surface.host);
@@ -105,66 +106,158 @@ async function boot(){
     return{surface,scene,camera,update,resize,dispose(){particleGeometry.dispose();particles.material.dispose();knot.geometry.dispose();knot.material.dispose();halo.geometry.dispose();halo.material.dispose()}};
   }
 
+  function createOrbitLine(radius,color=0x52607a,opacity=.28){
+    const points=[];
+    const segments=mobileQuery.matches?80:140;
+    for(let i=0;i<=segments;i++){
+      const angle=i/segments*Math.PI*2;
+      points.push(new THREE.Vector3(Math.cos(angle)*radius,0,Math.sin(angle)*radius));
+    }
+    const geometry=new THREE.BufferGeometry().setFromPoints(points);
+    const material=new THREE.LineBasicMaterial({color,transparent:true,opacity,depthWrite:false});
+    return new THREE.LineLoop(geometry,material);
+  }
+
+  function createGlowMaterial(color){
+    return new THREE.SpriteMaterial({color,transparent:true,opacity:.46,depthWrite:false,blending:THREE.AdditiveBlending});
+  }
+
   function createRoomScene(){
     const surface=createSurface(room,'three-room-layer');
     const scene=new THREE.Scene();
-    const camera=new THREE.PerspectiveCamera(50,1,.1,100);
-    camera.position.set(0,0,8);
-    const nodeCount=mobileQuery.matches||lowPower?32:56;
-    const positions=new Float32Array(nodeCount*3);
-    const velocities=[];
-    for(let i=0;i<nodeCount;i++){
-      positions[i*3]=randomBetween(-5.5,5.5);
-      positions[i*3+1]=randomBetween(-3.4,3.4);
-      positions[i*3+2]=randomBetween(-1.4,1.4);
-      velocities.push({x:randomBetween(-.004,.004),y:randomBetween(-.003,.003),z:randomBetween(-.0015,.0015)});
+    const camera=new THREE.PerspectiveCamera(48,1,.1,140);
+    const system=new THREE.Group();
+    system.rotation.x=.23;
+    system.rotation.z=-.06;
+    scene.add(system);
+
+    const disposeList=[];
+    const starCount=mobileQuery.matches||lowPower?260:620;
+    const starPositions=new Float32Array(starCount*3);
+    for(let i=0;i<starCount;i++){
+      const radius=randomBetween(18,48);
+      const theta=Math.random()*Math.PI*2;
+      const phi=Math.acos(randomBetween(-1,1));
+      starPositions[i*3]=radius*Math.sin(phi)*Math.cos(theta);
+      starPositions[i*3+1]=radius*Math.cos(phi);
+      starPositions[i*3+2]=radius*Math.sin(phi)*Math.sin(theta);
     }
-    const pointGeometry=new THREE.BufferGeometry();
-    pointGeometry.setAttribute('position',new THREE.BufferAttribute(positions,3).setUsage(THREE.DynamicDrawUsage));
-    const points=new THREE.Points(pointGeometry,new THREE.PointsMaterial({color:0x9d91ff,size:mobileQuery.matches?.055:.065,transparent:true,opacity:.72,depthWrite:false,blending:THREE.AdditiveBlending}));
-    scene.add(points);
+    const starGeometry=new THREE.BufferGeometry();
+    starGeometry.setAttribute('position',new THREE.BufferAttribute(starPositions,3));
+    const starMaterial=new THREE.PointsMaterial({color:0xcddcff,size:mobileQuery.matches?.075:.095,transparent:true,opacity:.74,depthWrite:false,blending:THREE.AdditiveBlending});
+    const stars=new THREE.Points(starGeometry,starMaterial);
+    scene.add(stars);disposeList.push(starGeometry,starMaterial);
 
-    const maxSegments=nodeCount*8;
-    const linePositions=new Float32Array(maxSegments*6);
-    const lineGeometry=new THREE.BufferGeometry();
-    lineGeometry.setAttribute('position',new THREE.BufferAttribute(linePositions,3).setUsage(THREE.DynamicDrawUsage));
-    lineGeometry.setDrawRange(0,0);
-    const lines=new THREE.LineSegments(lineGeometry,new THREE.LineBasicMaterial({color:0x70dfc0,transparent:true,opacity:.12,depthWrite:false,blending:THREE.AdditiveBlending}));
-    scene.add(lines);
+    const ambient=new THREE.AmbientLight(0x7080a8,.3);
+    scene.add(ambient);
+    const sunLight=new THREE.PointLight(0xffd58a,6.5,70,1.5);
+    scene.add(sunLight);
 
-    const resize=attachResize(surface,camera);
-    const update=time=>{
-      const positionAttribute=pointGeometry.getAttribute('position');
-      for(let i=0;i<nodeCount;i++){
-        let x=positionAttribute.getX(i)+velocities[i].x;
-        let y=positionAttribute.getY(i)+velocities[i].y;
-        let z=positionAttribute.getZ(i)+velocities[i].z;
-        if(Math.abs(x)>5.7){velocities[i].x*=-1;x=clamp(x,-5.7,5.7)}
-        if(Math.abs(y)>3.6){velocities[i].y*=-1;y=clamp(y,-3.6,3.6)}
-        if(Math.abs(z)>1.6){velocities[i].z*=-1;z=clamp(z,-1.6,1.6)}
-        positionAttribute.setXYZ(i,x,y,z);
+    const sunGeometry=new THREE.SphereGeometry(mobileQuery.matches?.72:.9,32,24);
+    const sunMaterial=new THREE.MeshBasicMaterial({color:0xffc45c});
+    const sun=new THREE.Mesh(sunGeometry,sunMaterial);
+    system.add(sun);disposeList.push(sunGeometry,sunMaterial);
+    const sunGlow=new THREE.Sprite(createGlowMaterial(0xffb13b));
+    sunGlow.scale.set(mobileQuery.matches?4.1:5.2,mobileQuery.matches?4.1:5.2,1);
+    system.add(sunGlow);disposeList.push(sunGlow.material);
+
+    const coronaGeometry=new THREE.RingGeometry(1.08,1.2,64);
+    const coronaMaterial=new THREE.MeshBasicMaterial({color:0xffd47c,transparent:true,opacity:.42,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending});
+    const corona=new THREE.Mesh(coronaGeometry,coronaMaterial);
+    corona.rotation.x=Math.PI/2;system.add(corona);disposeList.push(coronaGeometry,coronaMaterial);
+
+    const planetData=mobileQuery.matches||lowPower?[
+      {radius:1.75,size:.16,color:0xb7a08a,speed:.00058},
+      {radius:2.55,size:.24,color:0xe1a35d,speed:.00042},
+      {radius:3.45,size:.27,color:0x3e8fe8,speed:.00032,moon:true},
+      {radius:4.45,size:.21,color:0xca6042,speed:.00025},
+      {radius:5.75,size:.5,color:0xd6a56b,speed:.00016},
+      {radius:7,size:.43,color:0xe2c891,speed:.00012,ring:true},
+    ]:[
+      {radius:1.55,size:.14,color:0xa89a8c,speed:.00066},
+      {radius:2.18,size:.22,color:0xd59a59,speed:.00052},
+      {radius:2.95,size:.25,color:0x3e8fe8,speed:.0004,moon:true},
+      {radius:3.72,size:.19,color:0xc65d3f,speed:.00032},
+      {radius:4.85,size:.48,color:0xd5a068,speed:.00021},
+      {radius:6.1,size:.42,color:0xdfc48c,speed:.00016,ring:true},
+      {radius:7.25,size:.32,color:0x78c6d8,speed:.00012},
+      {radius:8.25,size:.3,color:0x4d70cf,speed:.000095},
+    ];
+
+    const planets=[];
+    planetData.forEach((data,index)=>{
+      const orbit=createOrbitLine(data.radius,index%2?0x6d6a8e:0x41677c,index<4?.3:.2);
+      orbit.rotation.x=.02*(index%3-1);system.add(orbit);disposeList.push(orbit.geometry,orbit.material);
+
+      const pivot=new THREE.Group();
+      pivot.rotation.y=index*.85;
+      pivot.rotation.x=.02*(index%3-1);
+      system.add(pivot);
+      const geometry=new THREE.SphereGeometry(data.size,24,18);
+      const material=new THREE.MeshStandardMaterial({color:data.color,roughness:.75,metalness:.04});
+      const mesh=new THREE.Mesh(geometry,material);
+      mesh.position.x=data.radius;
+      pivot.add(mesh);disposeList.push(geometry,material);
+
+      if(data.ring){
+        const ringGeometry=new THREE.RingGeometry(data.size*1.28,data.size*2.05,48);
+        const ringMaterial=new THREE.MeshBasicMaterial({color:0xd7c69f,transparent:true,opacity:.7,side:THREE.DoubleSide,depthWrite:false});
+        const ring=new THREE.Mesh(ringGeometry,ringMaterial);
+        ring.rotation.x=Math.PI/2.35;
+        mesh.add(ring);disposeList.push(ringGeometry,ringMaterial);
       }
-      positionAttribute.needsUpdate=true;
-      let segments=0;
-      const threshold=mobileQuery.matches?1.65:1.85;
-      for(let i=0;i<nodeCount&&segments<maxSegments;i++){
-        const ax=positionAttribute.getX(i),ay=positionAttribute.getY(i),az=positionAttribute.getZ(i);
-        for(let j=i+1;j<nodeCount&&segments<maxSegments;j++){
-          const bx=positionAttribute.getX(j),by=positionAttribute.getY(j),bz=positionAttribute.getZ(j);
-          const dx=ax-bx,dy=ay-by,dz=az-bz;
-          if(dx*dx+dy*dy+dz*dz>threshold*threshold)continue;
-          const offset=segments*6;
-          linePositions[offset]=ax;linePositions[offset+1]=ay;linePositions[offset+2]=az;
-          linePositions[offset+3]=bx;linePositions[offset+4]=by;linePositions[offset+5]=bz;
-          segments++;
-        }
+      if(data.moon){
+        const moonPivot=new THREE.Group();mesh.add(moonPivot);
+        const moonGeometry=new THREE.SphereGeometry(data.size*.28,14,10);
+        const moonMaterial=new THREE.MeshStandardMaterial({color:0xc9ccd4,roughness:.9});
+        const moon=new THREE.Mesh(moonGeometry,moonMaterial);
+        moon.position.x=data.size*1.85;moonPivot.add(moon);disposeList.push(moonGeometry,moonMaterial);
+        data.moonPivot=moonPivot;
       }
-      lineGeometry.attributes.position.needsUpdate=true;
-      lineGeometry.setDrawRange(0,segments*2);
-      scene.rotation.z=Math.sin(time*.00007)*.025;
-      camera.position.x=pointer.x*.12;camera.position.y=-pointer.y*.08;camera.lookAt(0,0,0);
+      planets.push({pivot,mesh,data});
+    });
+
+    const asteroidCount=mobileQuery.matches?70:145;
+    const asteroidGeometry=new THREE.BufferGeometry();
+    const asteroidPositions=new Float32Array(asteroidCount*3);
+    for(let i=0;i<asteroidCount;i++){
+      const angle=Math.random()*Math.PI*2;
+      const radius=randomBetween(4.05,4.5);
+      asteroidPositions[i*3]=Math.cos(angle)*radius;
+      asteroidPositions[i*3+1]=randomBetween(-.08,.08);
+      asteroidPositions[i*3+2]=Math.sin(angle)*radius;
+    }
+    asteroidGeometry.setAttribute('position',new THREE.BufferAttribute(asteroidPositions,3));
+    const asteroidMaterial=new THREE.PointsMaterial({color:0x9a8b78,size:.035,transparent:true,opacity:.7});
+    const asteroids=new THREE.Points(asteroidGeometry,asteroidMaterial);
+    system.add(asteroids);disposeList.push(asteroidGeometry,asteroidMaterial);
+
+    const updateCamera=(width,height)=>{
+      const compact=width<780;
+      const wide=width/height>1.8;
+      camera.position.set(compact?0:wide?1.5:.7,compact?9.8:7.5,compact?14.5:wide?15.2:16.5);
+      camera.lookAt(0,0,0);
     };
-    return{surface,scene,camera,update,resize,dispose(){pointGeometry.dispose();points.material.dispose();lineGeometry.dispose();lines.material.dispose()}};
+    const resize=attachResize(surface,camera,updateCamera);
+    const update=time=>{
+      pointer.x+=(pointer.targetX-pointer.x)*.025;
+      pointer.y+=(pointer.targetY-pointer.y)*.025;
+      sun.rotation.y=time*.00018;
+      corona.rotation.z=time*.00016;
+      sunGlow.material.opacity=.42+Math.sin(time*.0022)*.07;
+      asteroids.rotation.y=time*.000025;
+      stars.rotation.y=-time*.000006;
+      planets.forEach(({pivot,mesh,data},index)=>{
+        pivot.rotation.y=time*data.speed+index*.85;
+        mesh.rotation.y=time*(.00022+index*.000012);
+        if(data.moonPivot)data.moonPivot.rotation.y=time*.00085;
+      });
+      system.rotation.y=pointer.x*.055+Math.sin(time*.00004)*.035;
+      system.rotation.x=.23+pointer.y*.035;
+      camera.position.x+=((pointer.x*.6)-camera.position.x*.02)*.012;
+      camera.lookAt(0,0,0);
+    };
+    return{surface,scene,camera,update,resize,dispose(){disposeList.forEach(resource=>resource.dispose?.())}};
   }
 
   let landingScene;
@@ -214,6 +307,6 @@ async function boot(){
   };
 }
 
-const schedule=callback=>'requestIdleCallback'in window?requestIdleCallback(callback,{timeout:1400}):setTimeout(callback,180);
+const schedule=callback=>'requestIdleCallback'in window?requestIdleCallback(callback,{timeout:1000}):setTimeout(callback,120);
 schedule(()=>boot().catch(error=>console.warn('Three.js effects failed.',error)));
 addEventListener('beforeunload',()=>teardown());
