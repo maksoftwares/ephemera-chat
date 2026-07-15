@@ -2,12 +2,12 @@
 .three-effect-layer{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;contain:strict}
 .three-effect-layer canvas{display:block;width:100%;height:100%;pointer-events:none}
 .three-landing-layer{opacity:.92;mix-blend-mode:screen}
-.three-room-layer{right:300px;z-index:1;opacity:1;mix-blend-mode:normal;background:radial-gradient(circle at 50% 48%,#22170433 0,#0a0d1838 34%,#05070d 78%)}
-.three-room-layer::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 22%,#070a1166 66%,#070a11c7 100%)}
+.three-room-layer{right:300px;z-index:1;opacity:.96;mix-blend-mode:normal;background:radial-gradient(circle at 50% 50%,#24183a5c 0,#11193442 35%,#05070d 82%)}
+.three-room-layer::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 18%,#080b165e 64%,#06080fd1 100%)}
 .landing>.card{position:relative;z-index:2;background:linear-gradient(145deg,#111520e8,#10141ee0);backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%)}
 .room>.chat{position:relative;z-index:2;min-width:0;min-height:0;height:100%;background:transparent!important}
 .room>.people{z-index:25}
-.messages{background:linear-gradient(180deg,#090b1280,#090b1218 38%,#090b1248 72%,#090b1288)!important}
+.messages{background:linear-gradient(180deg,#090b1274,#090b1212 36%,#090b1244 72%,#090b1280)!important}
 .top,.composer,.people{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .bubble{box-shadow:0 8px 24px #00000038}
 @media(max-width:900px){.three-room-layer{right:280px}}
@@ -19,18 +19,18 @@
   .room>.people.open{transform:translateX(0)}
   .people-backdrop{position:fixed!important;inset:0!important;z-index:45!important}
   .three-landing-layer{opacity:.68}
-  .three-room-layer{inset:0!important;right:0!important;z-index:1;opacity:.92;background:radial-gradient(circle at 50% 45%,#22170440 0,#080b1438 42%,#05070d 84%)}
-  .three-room-layer::after{background:radial-gradient(ellipse at center,transparent 18%,#070a116e 68%,#070a11d9 100%)}
+  .three-room-layer{inset:0!important;right:0!important;z-index:1;opacity:.9;background:radial-gradient(circle at 50% 52%,#25183d50 0,#10172f3d 43%,#05070d 86%)}
+  .three-room-layer::after{background:radial-gradient(ellipse at center,transparent 16%,#080b1668 68%,#06080fdd 100%)}
   .landing>.card{backdrop-filter:blur(13px) saturate(115%);-webkit-backdrop-filter:blur(13px) saturate(115%)}
   .top{min-width:0;overflow:hidden}
   .room-meta{min-width:0}
   .actions{min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .actions::-webkit-scrollbar{display:none}
-  .messages{min-height:0;overflow-y:auto;background:linear-gradient(180deg,#090b127a,#090b1224 42%,#090b126e)!important}
+  .messages{min-height:0;overflow-y:auto;background:linear-gradient(180deg,#090b126f,#090b121b 42%,#090b1269)!important}
   .composer{position:relative;z-index:4;flex:0 0 auto}
 }
 @media(max-width:420px){
   .actions .secondary{white-space:nowrap}
-  .three-room-layer{opacity:.86}
+  .three-room-layer{opacity:.84}
 }
-@media(prefers-reduced-motion:reduce){.three-effect-layer{opacity:.48!important}}
+@media(prefers-reduced-motion:reduce){.three-effect-layer{opacity:.42!important}}
