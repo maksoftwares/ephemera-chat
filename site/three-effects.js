@@ -96,24 +96,16 @@ async function boot(){
     return{surface,scene,camera,resize,update,dispose(){particleGeometry.dispose();particleMaterial.dispose();knotGeometry.dispose();knotMaterial.dispose();haloGeometry.dispose();haloMaterial.dispose()}};
   }
 
-  function createOrbit(radius,color=0x52607a,opacity=.28){
-    const points=[],segments=mobileQuery.matches?80:140;
-    for(let i=0;i<=segments;i++){const angle=i/segments*Math.PI*2;points.push(new THREE.Vector3(Math.cos(angle)*radius,0,Math.sin(angle)*radius))}
-    const geometry=new THREE.BufferGeometry().setFromPoints(points);
-    const material=new THREE.LineBasicMaterial({color,transparent:true,opacity,depthWrite:false});
-    return new THREE.LineLoop(geometry,material);
-  }
-
-  function createRadialGlowTexture(){
+  function createGalaxyGlowTexture(){
     const size=256,canvas=document.createElement('canvas');
     canvas.width=canvas.height=size;
     const context=canvas.getContext('2d');
     const gradient=context.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
-    gradient.addColorStop(0,'rgba(255,244,190,0.95)');
-    gradient.addColorStop(.16,'rgba(255,197,82,0.7)');
-    gradient.addColorStop(.42,'rgba(255,143,34,0.28)');
-    gradient.addColorStop(.72,'rgba(255,106,22,0.08)');
-    gradient.addColorStop(1,'rgba(255,90,0,0)');
+    gradient.addColorStop(0,'rgba(255,244,218,0.98)');
+    gradient.addColorStop(.1,'rgba(255,222,171,0.82)');
+    gradient.addColorStop(.28,'rgba(194,165,255,0.38)');
+    gradient.addColorStop(.58,'rgba(101,119,255,0.13)');
+    gradient.addColorStop(1,'rgba(56,65,180,0)');
     context.fillStyle=gradient;context.fillRect(0,0,size,size);
     const texture=new THREE.CanvasTexture(canvas);
     texture.colorSpace=THREE.SRGBColorSpace;
@@ -124,94 +116,125 @@ async function boot(){
   function createRoomScene(){
     const surface=createSurface(room,'three-room-layer');
     const scene=new THREE.Scene();
-    const camera=new THREE.PerspectiveCamera(48,1,.1,140);
-    const system=new THREE.Group();
-    system.rotation.x=.23;system.rotation.z=-.06;scene.add(system);
+    const camera=new THREE.PerspectiveCamera(48,1,.1,180);
+    const galaxy=new THREE.Group();
+    galaxy.rotation.x=.92;
+    galaxy.rotation.z=-.28;
+    scene.add(galaxy);
     const disposeList=[];
+    const cameraBase={x:0,y:7.2,z:14.5};
 
-    const starCount=mobileQuery.matches||lowPower?260:620;
-    const starPositions=new Float32Array(starCount*3);
+    const starCount=mobileQuery.matches||lowPower?950:2400;
+    const arms=4;
+    const radiusMax=mobileQuery.matches?10.5:13.5;
+    const positions=new Float32Array(starCount*3);
+    const colors=new Float32Array(starCount*3);
+    const coreColor=new THREE.Color(0xffe7bd);
+    const armColor=new THREE.Color(0x9eb4ff);
+    const edgeColor=new THREE.Color(0x725ee8);
+    const mixed=new THREE.Color();
+
     for(let i=0;i<starCount;i++){
-      const radius=randomBetween(18,48),theta=Math.random()*Math.PI*2,phi=Math.acos(randomBetween(-1,1));
-      starPositions[i*3]=radius*Math.sin(phi)*Math.cos(theta);
-      starPositions[i*3+1]=radius*Math.cos(phi);
-      starPositions[i*3+2]=radius*Math.sin(phi)*Math.sin(theta);
+      const normalized=Math.pow(Math.random(),1.5);
+      const radius=normalized*radiusMax;
+      const arm=i%arms;
+      const baseAngle=arm/arms*Math.PI*2;
+      const spin=radius*.72;
+      const angle=baseAngle+spin+randomBetween(-.34,.34);
+      const spread=.14+radius*.085;
+      positions[i*3]=Math.cos(angle)*radius+randomBetween(-spread,spread);
+      positions[i*3+1]=randomBetween(-.12,.12)+randomBetween(-.24,.24)*(1-normalized);
+      positions[i*3+2]=Math.sin(angle)*radius+randomBetween(-spread,spread);
+      mixed.copy(coreColor).lerp(armColor,Math.min(1,normalized*.88)).lerp(edgeColor,Math.random()*.2*normalized);
+      colors[i*3]=mixed.r;colors[i*3+1]=mixed.g;colors[i*3+2]=mixed.b;
     }
-    const starGeometry=new THREE.BufferGeometry();
-    starGeometry.setAttribute('position',new THREE.BufferAttribute(starPositions,3));
-    const starMaterial=new THREE.PointsMaterial({color:0xcddcff,size:mobileQuery.matches?.075:.095,transparent:true,opacity:.74,depthWrite:false,blending:THREE.AdditiveBlending});
-    const stars=new THREE.Points(starGeometry,starMaterial);
-    scene.add(stars);disposeList.push(starGeometry,starMaterial);
 
-    scene.add(new THREE.AmbientLight(0x7080a8,.3));
-    scene.add(new THREE.PointLight(0xffd58a,6.5,70,1.5));
-
-    const sunGeometry=new THREE.SphereGeometry(mobileQuery.matches?.72:.9,32,24);
-    const sunMaterial=new THREE.MeshBasicMaterial({color:0xffc45c});
-    const sun=new THREE.Mesh(sunGeometry,sunMaterial);
-    system.add(sun);disposeList.push(sunGeometry,sunMaterial);
-
-    const glowTexture=createRadialGlowTexture();
-    const glowMaterial=new THREE.SpriteMaterial({map:glowTexture,color:0xffffff,transparent:true,opacity:.72,depthWrite:false,blending:THREE.AdditiveBlending});
-    const sunGlow=new THREE.Sprite(glowMaterial);
-    const glowSize=mobileQuery.matches?4.3:5.4;
-    sunGlow.scale.set(glowSize,glowSize,1);
-    system.add(sunGlow);disposeList.push(glowTexture,glowMaterial);
-
-    const planetData=mobileQuery.matches||lowPower?[
-      {radius:1.75,size:.16,color:0xb7a08a,speed:.00058},{radius:2.55,size:.24,color:0xe1a35d,speed:.00042},{radius:3.45,size:.27,color:0x3e8fe8,speed:.00032,moon:true},{radius:4.45,size:.21,color:0xca6042,speed:.00025},{radius:5.75,size:.5,color:0xd6a56b,speed:.00016},{radius:7,size:.43,color:0xe2c891,speed:.00012,ring:true}
-    ]:[
-      {radius:1.55,size:.14,color:0xa89a8c,speed:.00066},{radius:2.18,size:.22,color:0xd59a59,speed:.00052},{radius:2.95,size:.25,color:0x3e8fe8,speed:.0004,moon:true},{radius:3.72,size:.19,color:0xc65d3f,speed:.00032},{radius:4.85,size:.48,color:0xd5a068,speed:.00021},{radius:6.1,size:.42,color:0xdfc48c,speed:.00016,ring:true},{radius:7.25,size:.32,color:0x78c6d8,speed:.00012},{radius:8.25,size:.3,color:0x4d70cf,speed:.000095}
-    ];
-
-    const planets=[];
-    planetData.forEach((data,index)=>{
-      const orbit=createOrbit(data.radius,index%2?0x6d6a8e:0x41677c,index<4?.3:.2);
-      orbit.rotation.x=.02*(index%3-1);system.add(orbit);disposeList.push(orbit.geometry,orbit.material);
-      const pivot=new THREE.Group();pivot.rotation.y=index*.85;pivot.rotation.x=.02*(index%3-1);system.add(pivot);
-      const geometry=new THREE.SphereGeometry(data.size,24,18);
-      const material=new THREE.MeshStandardMaterial({color:data.color,roughness:.75,metalness:.04});
-      const mesh=new THREE.Mesh(geometry,material);mesh.position.x=data.radius;pivot.add(mesh);disposeList.push(geometry,material);
-      if(data.ring){
-        const ringGeometry=new THREE.RingGeometry(data.size*1.28,data.size*2.05,48);
-        const ringMaterial=new THREE.MeshBasicMaterial({color:0xd7c69f,transparent:true,opacity:.7,side:THREE.DoubleSide,depthWrite:false});
-        const ring=new THREE.Mesh(ringGeometry,ringMaterial);ring.rotation.x=Math.PI/2.35;mesh.add(ring);disposeList.push(ringGeometry,ringMaterial);
-      }
-      if(data.moon){
-        const moonPivot=new THREE.Group();mesh.add(moonPivot);
-        const moonGeometry=new THREE.SphereGeometry(data.size*.28,14,10);
-        const moonMaterial=new THREE.MeshStandardMaterial({color:0xc9ccd4,roughness:.9});
-        const moon=new THREE.Mesh(moonGeometry,moonMaterial);moon.position.x=data.size*1.85;moonPivot.add(moon);disposeList.push(moonGeometry,moonMaterial);data.moonPivot=moonPivot;
-      }
-      planets.push({pivot,mesh,data});
+    const galaxyGeometry=new THREE.BufferGeometry();
+    galaxyGeometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
+    galaxyGeometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
+    const galaxyMaterial=new THREE.PointsMaterial({
+      size:mobileQuery.matches?.075:.092,
+      transparent:true,
+      opacity:mobileQuery.matches?.67:.75,
+      vertexColors:true,
+      depthWrite:false,
+      blending:THREE.AdditiveBlending,
+      sizeAttenuation:true,
     });
+    const galaxyStars=new THREE.Points(galaxyGeometry,galaxyMaterial);
+    galaxy.add(galaxyStars);
+    disposeList.push(galaxyGeometry,galaxyMaterial);
 
-    const asteroidCount=mobileQuery.matches?70:145;
-    const asteroidGeometry=new THREE.BufferGeometry();
-    const asteroidPositions=new Float32Array(asteroidCount*3);
-    for(let i=0;i<asteroidCount;i++){
-      const angle=Math.random()*Math.PI*2,radius=randomBetween(4.05,4.5);
-      asteroidPositions[i*3]=Math.cos(angle)*radius;asteroidPositions[i*3+1]=randomBetween(-.08,.08);asteroidPositions[i*3+2]=Math.sin(angle)*radius;
+    const dustCount=mobileQuery.matches||lowPower?320:720;
+    const dustPositions=new Float32Array(dustCount*3);
+    const dustColors=new Float32Array(dustCount*3);
+    const dustA=new THREE.Color(0x7f65d9),dustB=new THREE.Color(0x274c98);
+    for(let i=0;i<dustCount;i++){
+      const normalized=Math.pow(Math.random(),1.15);
+      const radius=normalized*radiusMax*.92;
+      const arm=i%arms;
+      const angle=arm/arms*Math.PI*2+radius*.72+randomBetween(-.58,.58);
+      const spread=.35+radius*.12;
+      dustPositions[i*3]=Math.cos(angle)*radius+randomBetween(-spread,spread);
+      dustPositions[i*3+1]=randomBetween(-.22,.22);
+      dustPositions[i*3+2]=Math.sin(angle)*radius+randomBetween(-spread,spread);
+      mixed.copy(dustA).lerp(dustB,Math.random());
+      dustColors[i*3]=mixed.r;dustColors[i*3+1]=mixed.g;dustColors[i*3+2]=mixed.b;
     }
-    asteroidGeometry.setAttribute('position',new THREE.BufferAttribute(asteroidPositions,3));
-    const asteroidMaterial=new THREE.PointsMaterial({color:0x9a8b78,size:.035,transparent:true,opacity:.7});
-    const asteroids=new THREE.Points(asteroidGeometry,asteroidMaterial);
-    system.add(asteroids);disposeList.push(asteroidGeometry,asteroidMaterial);
+    const dustGeometry=new THREE.BufferGeometry();
+    dustGeometry.setAttribute('position',new THREE.BufferAttribute(dustPositions,3));
+    dustGeometry.setAttribute('color',new THREE.BufferAttribute(dustColors,3));
+    const dustMaterial=new THREE.PointsMaterial({size:mobileQuery.matches?.13:.17,transparent:true,opacity:.075,vertexColors:true,depthWrite:false,blending:THREE.AdditiveBlending});
+    const dust=new THREE.Points(dustGeometry,dustMaterial);
+    galaxy.add(dust);
+    disposeList.push(dustGeometry,dustMaterial);
+
+    const coreTexture=createGalaxyGlowTexture();
+    const coreMaterial=new THREE.SpriteMaterial({map:coreTexture,transparent:true,opacity:.76,depthWrite:false,blending:THREE.AdditiveBlending});
+    const core=new THREE.Sprite(coreMaterial);
+    const coreSize=mobileQuery.matches?6.1:7.6;
+    core.scale.set(coreSize,coreSize,1);
+    galaxy.add(core);
+    disposeList.push(coreTexture,coreMaterial);
+
+    const backgroundCount=mobileQuery.matches||lowPower?220:480;
+    const backgroundPositions=new Float32Array(backgroundCount*3);
+    for(let i=0;i<backgroundCount;i++){
+      const radius=randomBetween(20,46),theta=Math.random()*Math.PI*2,phi=Math.acos(randomBetween(-1,1));
+      backgroundPositions[i*3]=radius*Math.sin(phi)*Math.cos(theta);
+      backgroundPositions[i*3+1]=radius*Math.cos(phi);
+      backgroundPositions[i*3+2]=radius*Math.sin(phi)*Math.sin(theta);
+    }
+    const backgroundGeometry=new THREE.BufferGeometry();
+    backgroundGeometry.setAttribute('position',new THREE.BufferAttribute(backgroundPositions,3));
+    const backgroundMaterial=new THREE.PointsMaterial({color:0xcbd5ff,size:mobileQuery.matches?.055:.072,transparent:true,opacity:.42,depthWrite:false,blending:THREE.AdditiveBlending});
+    const backgroundStars=new THREE.Points(backgroundGeometry,backgroundMaterial);
+    scene.add(backgroundStars);
+    disposeList.push(backgroundGeometry,backgroundMaterial);
 
     const updateCamera=(width,height)=>{
-      const compact=width<780,wide=width/height>1.8;
-      camera.position.set(compact?0:wide?1.5:.7,compact?9.8:7.5,compact?14.5:wide?15.2:16.5);camera.lookAt(0,0,0);
+      const compact=width<780;
+      const veryTall=height>width*1.45;
+      if(compact&&veryTall)Object.assign(cameraBase,{x:0,y:9.2,z:12.8});
+      else if(compact)Object.assign(cameraBase,{x:0,y:7.8,z:13.8});
+      else Object.assign(cameraBase,{x:.8,y:6.8,z:14.8});
+      camera.position.set(cameraBase.x,cameraBase.y,cameraBase.z);
+      camera.lookAt(0,0,0);
     };
     const resize=attachResize(surface,camera,updateCamera);
     const update=time=>{
-      pointer.x+=(pointer.targetX-pointer.x)*.025;pointer.y+=(pointer.targetY-pointer.y)*.025;
-      sun.rotation.y=time*.00018;
-      sunGlow.material.opacity=.66+Math.sin(time*.0022)*.08;
-      const pulse=1+Math.sin(time*.0018)*.035;sunGlow.scale.set(glowSize*pulse,glowSize*pulse,1);
-      asteroids.rotation.y=time*.000025;stars.rotation.y=-time*.000006;
-      planets.forEach(({pivot,mesh,data},index)=>{pivot.rotation.y=time*data.speed+index*.85;mesh.rotation.y=time*(.00022+index*.000012);if(data.moonPivot)data.moonPivot.rotation.y=time*.00085});
-      system.rotation.y=pointer.x*.055+Math.sin(time*.00004)*.035;system.rotation.x=.23+pointer.y*.035;
-      camera.position.x+=((pointer.x*.6)-camera.position.x*.02)*.012;camera.lookAt(0,0,0);
+      pointer.x+=(pointer.targetX-pointer.x)*.022;
+      pointer.y+=(pointer.targetY-pointer.y)*.022;
+      galaxy.rotation.y=time*.00004+pointer.x*.045;
+      galaxy.rotation.z=-.28+Math.sin(time*.000025)*.016;
+      galaxy.rotation.x=.92+pointer.y*.025;
+      dust.rotation.y=-time*.000012;
+      backgroundStars.rotation.y=-time*.000006;
+      const pulse=1+Math.sin(time*.0014)*.035;
+      core.scale.set(coreSize*pulse,coreSize*pulse,1);
+      core.material.opacity=.7+Math.sin(time*.0011)*.07;
+      camera.position.set(cameraBase.x+pointer.x*.5,cameraBase.y-pointer.y*.18,cameraBase.z);
+      camera.lookAt(0,0,0);
     };
     return{surface,scene,camera,update,resize,dispose(){disposeList.forEach(resource=>resource.dispose?.())}};
   }
