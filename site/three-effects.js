@@ -1,3 +1,5 @@
+import { NEBULA_TEXTURE_DATA } from './nebula-texture.js';
+
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobileQuery = matchMedia('(max-width: 760px)');
 const lowPower =
@@ -19,6 +21,15 @@ async function boot() {
     return;
   }
 
+  const texture = await new THREE.TextureLoader().loadAsync(NEBULA_TEXTURE_DATA);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+
+  const textureWidth = texture.image?.naturalWidth || texture.image?.width || 748;
+  const textureHeight = texture.image?.naturalHeight || texture.image?.height || 434;
   const pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
   const scenes = [];
   let frameId = 0;
@@ -37,7 +48,9 @@ async function boot() {
     precision highp float;
 
     varying vec2 vUv;
+    uniform sampler2D uTexture;
     uniform vec2 uResolution;
+    uniform vec2 uTextureResolution;
     uniform vec2 uPointer;
     uniform float uTime;
     uniform float uRoomMode;
@@ -48,135 +61,104 @@ async function boot() {
       return fract(p.x * p.y);
     }
 
-    vec2 hash22(vec2 p) {
-      float n = hash21(p);
-      return vec2(n, hash21(p + n + 19.19));
-    }
-
     float noise(vec2 p) {
       vec2 i = floor(p);
       vec2 f = fract(p);
       f = f * f * (3.0 - 2.0 * f);
-
       float a = hash21(i);
       float b = hash21(i + vec2(1.0, 0.0));
       float c = hash21(i + vec2(0.0, 1.0));
       float d = hash21(i + vec2(1.0, 1.0));
-
       return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
     }
 
     float fbm(vec2 p) {
       float value = 0.0;
-      float amplitude = 0.52;
+      float amplitude = 0.5;
       mat2 rotation = mat2(0.80, -0.60, 0.60, 0.80);
-
-      for (int i = 0; i < 6; i++) {
+      for (int i = 0; i < 5; i++) {
         value += amplitude * noise(p);
-        p = rotation * p * 2.03 + 13.17;
-        amplitude *= 0.50;
+        p = rotation * p * 2.05 + 11.7;
+        amplitude *= 0.5;
       }
       return value;
     }
 
-    float ridged(vec2 p) {
-      float value = 0.0;
-      float amplitude = 0.55;
-      mat2 rotation = mat2(0.86, -0.51, 0.51, 0.86);
-
-      for (int i = 0; i < 5; i++) {
-        float n = noise(p);
-        n = 1.0 - abs(n * 2.0 - 1.0);
-        value += n * n * amplitude;
-        p = rotation * p * 2.14 + 7.41;
-        amplitude *= 0.48;
+    vec2 coverUv(vec2 uv) {
+      float screenAspect = uResolution.x / max(uResolution.y, 1.0);
+      float imageAspect = uTextureResolution.x / max(uTextureResolution.y, 1.0);
+      vec2 scale = vec2(1.0);
+      if (screenAspect > imageAspect) {
+        scale.y = imageAspect / screenAspect;
+      } else {
+        scale.x = screenAspect / imageAspect;
       }
-      return value;
+      return (uv - 0.5) * scale + 0.5;
     }
 
     float starLayer(vec2 uv, float scale, float threshold) {
       vec2 cell = floor(uv * scale);
       vec2 local = fract(uv * scale) - 0.5;
-      vec2 offset = hash22(cell) - 0.5;
+      vec2 offset = vec2(hash21(cell), hash21(cell + 9.17)) - 0.5;
       float seed = hash21(cell + 71.7);
-      float distanceToStar = length(local - offset * 0.72);
-      float star = smoothstep(0.055, 0.0, distanceToStar);
-      star *= smoothstep(threshold, 1.0, seed);
-      return star;
+      float d = length(local - offset * 0.72);
+      return smoothstep(0.055, 0.0, d) * smoothstep(threshold, 1.0, seed);
     }
 
     float flare(vec2 p, vec2 center, float size) {
       vec2 delta = p - center;
-      float distanceValue = length(delta);
-      float core = smoothstep(size, 0.0, distanceValue);
-      float horizontal = exp(-abs(delta.y) * 130.0 / size) * exp(-abs(delta.x) * 3.0 / size);
-      float vertical = exp(-abs(delta.x) * 130.0 / size) * exp(-abs(delta.y) * 3.0 / size);
-      return core + (horizontal + vertical) * 0.32;
+      float core = smoothstep(size, 0.0, length(delta));
+      float horizontal = exp(-abs(delta.y) * 105.0 / size) * exp(-abs(delta.x) * 3.0 / size);
+      float vertical = exp(-abs(delta.x) * 105.0 / size) * exp(-abs(delta.y) * 3.0 / size);
+      return core + (horizontal + vertical) * 0.28;
     }
 
     void main() {
-      vec2 uv = vUv;
-      vec2 p = uv - 0.5;
-      p.x *= uResolution.x / max(uResolution.y, 1.0);
+      vec2 uv = coverUv(vUv);
+      float t = uTime * 0.035;
+      vec2 centered = vUv - 0.5;
+      vec2 parallax = uPointer * vec2(0.012, -0.009);
 
-      vec2 pointerShift = uPointer * vec2(0.10, -0.07);
-      float slowTime = uTime * 0.018;
+      float flowA = fbm(uv * 3.3 + vec2(t * 0.25, -t * 0.13));
+      float flowB = fbm(uv * 5.2 + vec2(-t * 0.16, t * 0.21) + 7.4);
+      vec2 distortion = vec2(flowA - 0.5, flowB - 0.5) * 0.026;
 
-      vec2 warpA = vec2(
-        fbm(p * 1.18 + vec2(slowTime * 0.19, -slowTime * 0.11)),
-        fbm(p * 1.18 + vec2(8.4, 3.7) + vec2(-slowTime * 0.13, slowTime * 0.17))
-      );
+      float breathing = 1.035 + sin(uTime * 0.08) * 0.009;
+      vec2 animatedUv = (uv - 0.5) / breathing + 0.5 + parallax + distortion;
+      animatedUv = clamp(animatedUv, vec2(0.002), vec2(0.998));
 
-      vec2 warped = p + (warpA - 0.5) * 1.05 + pointerShift;
-      float cloudA = fbm(warped * 1.48 + vec2(slowTime * 0.12, 0.0));
-      float cloudB = ridged(warped * 1.92 - vec2(slowTime * 0.08, slowTime * 0.04));
-      float cloudC = fbm(warped * 3.35 + vec2(-slowTime * 0.05, slowTime * 0.07));
+      vec3 base = texture2D(uTexture, animatedUv).rgb;
+      vec3 driftOne = texture2D(uTexture, clamp(animatedUv + vec2(t * 0.0018, -t * 0.0011) + distortion * 0.34, vec2(0.002), vec2(0.998))).rgb;
+      vec3 driftTwo = texture2D(uTexture, clamp(animatedUv + vec2(-t * 0.0011, t * 0.0015) - distortion * 0.22, vec2(0.002), vec2(0.998))).rgb;
 
-      float wisps = smoothstep(0.44, 0.82, cloudA * 0.68 + cloudB * 0.55);
-      wisps *= 0.62 + cloudC * 0.54;
+      float cloudMask = smoothstep(0.16, 0.72, max(base.b, max(base.r * 0.72, base.g * 0.82)));
+      vec3 color = mix(base, driftOne, cloudMask * 0.18);
+      color = mix(color, driftTwo, cloudMask * 0.10);
 
-      float edgeBias = smoothstep(0.08, 0.90, length(p * vec2(0.82, 1.02)));
-      float centerCalm = smoothstep(0.08, 0.55, length(p * vec2(0.95, 1.10)));
-      float nebulaMask = wisps * mix(0.42, 1.0, edgeBias);
-      nebulaMask *= mix(0.56, 1.0, centerCalm);
+      float glowPulse = 0.94 + sin(uTime * 0.42 + flowA * 5.0) * 0.07;
+      color *= glowPulse;
+      color += vec3(0.07, 0.10, 0.35) * cloudMask * (0.16 + flowB * 0.16);
 
-      vec3 deepSpace = vec3(0.004, 0.007, 0.030);
-      vec3 midnight = vec3(0.012, 0.025, 0.095);
-      vec3 electricBlue = vec3(0.050, 0.255, 0.950);
-      vec3 violet = vec3(0.475, 0.095, 0.940);
-      vec3 magenta = vec3(0.760, 0.180, 0.780);
-
-      float hueMix = smoothstep(0.28, 0.82, fbm(warped * 1.12 + 21.3));
-      vec3 nebulaColor = mix(electricBlue, violet, hueMix);
-      nebulaColor = mix(nebulaColor, magenta, smoothstep(0.66, 0.98, cloudB) * 0.38);
-
-      vec3 color = mix(deepSpace, midnight, cloudA * 0.48);
-      color += nebulaColor * nebulaMask * (uRoomMode > 0.5 ? 0.58 : 0.86);
-      color += vec3(0.12, 0.18, 0.55) * pow(max(cloudB - 0.54, 0.0), 2.0) * 1.55;
-
-      vec2 starUv = uv + uPointer * 0.004;
+      vec2 starUv = vUv + parallax * 0.25;
       float stars = starLayer(starUv, 92.0, 0.965);
-      stars += starLayer(starUv + 0.137, 154.0, 0.986) * 0.72;
-      stars += starLayer(starUv + 0.413, 245.0, 0.994) * 0.45;
+      stars += starLayer(starUv + 0.137, 154.0, 0.987) * 0.68;
+      float twinkle = 0.72 + 0.28 * sin(uTime * 1.5 + hash21(floor(starUv * 92.0)) * 17.0);
+      color += vec3(0.72, 0.84, 1.0) * stars * twinkle;
 
-      float twinkle = 0.78 + 0.22 * sin(uTime * 1.35 + hash21(floor(starUv * 92.0)) * 18.0);
-      color += vec3(0.72, 0.83, 1.0) * stars * twinkle;
+      float flares = flare(centered, vec2(-0.23, 0.11), 0.018);
+      flares += flare(centered, vec2(0.28, -0.18), 0.013) * 0.72;
+      color += vec3(0.66, 0.79, 1.0) * flares;
 
-      float brightStars = 0.0;
-      brightStars += flare(p, vec2(-0.30, 0.18), 0.022);
-      brightStars += flare(p, vec2(0.31, -0.16), 0.017) * 0.82;
-      brightStars += flare(p, vec2(0.23, 0.27), 0.012) * 0.62;
-      color += vec3(0.72, 0.84, 1.0) * brightStars;
-
-      float vignette = smoothstep(0.95, 0.18, length(p * vec2(0.76, 0.95)));
-      color *= 0.62 + vignette * 0.52;
+      float vignette = smoothstep(0.96, 0.18, length(centered * vec2(0.78, 0.96)));
+      color *= 0.66 + vignette * 0.46;
 
       if (uRoomMode > 0.5) {
-        float readableCenter = 1.0 - smoothstep(0.08, 0.48, length(p * vec2(0.92, 1.18)));
-        color *= 1.0 - readableCenter * 0.18;
+        float readableCenter = 1.0 - smoothstep(0.08, 0.56, length(centered * vec2(0.94, 1.18)));
+        color *= 1.0 - readableCenter * 0.15;
+        color *= 0.88;
       }
 
-      color = pow(color, vec3(0.90));
+      color = pow(max(color, vec3(0.0)), vec3(0.94));
       gl_FragColor = vec4(color, 1.0);
     }
   `;
@@ -202,14 +184,15 @@ async function boot() {
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     const geometry = new THREE.PlaneGeometry(2, 2);
     const uniforms = {
+      uTexture: { value: texture },
+      uTextureResolution: { value: new THREE.Vector2(textureWidth, textureHeight) },
       uResolution: { value: new THREE.Vector2(1, 1) },
       uPointer: { value: new THREE.Vector2(0, 0) },
       uTime: { value: 0 },
       uRoomMode: { value: roomMode ? 1 : 0 },
     };
     const material = new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms, depthWrite: false, depthTest: false });
-    const plane = new THREE.Mesh(geometry, material);
-    scene.add(plane);
+    scene.add(new THREE.Mesh(geometry, material));
 
     let width = 1;
     let height = 1;
@@ -223,7 +206,6 @@ async function boot() {
       renderer.setSize(width, height, false);
       uniforms.uResolution.value.set(width, height);
     };
-
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(host);
     resize();
@@ -260,6 +242,7 @@ async function boot() {
   } catch (error) {
     console.warn('WebGL effects are unavailable.', error);
     scenes.forEach((item) => item?.dispose?.());
+    texture.dispose();
     return;
   }
 
@@ -314,15 +297,11 @@ async function boot() {
   classObserver.observe(landing, { attributes: true, attributeFilter: ['class'] });
   classObserver.observe(room, { attributes: true, attributeFilter: ['class'] });
 
-  addEventListener(
-    'pointermove',
-    (event) => {
-      pointer.targetX = (event.clientX / Math.max(innerWidth, 1) - 0.5) * 2;
-      pointer.targetY = (event.clientY / Math.max(innerHeight, 1) - 0.5) * 2;
-    },
-    { passive: true },
-  );
-  addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+  addEventListener('pointermove', (event) => {
+    pointer.targetX = (event.clientX / Math.max(innerWidth, 1) - 0.5) * 2;
+    pointer.targetY = (event.clientY / Math.max(innerHeight, 1) - 0.5) * 2;
+  }, { passive: true });
+  addEventListener('visibilitychange', () => document.hidden ? stop() : start());
   mobileQuery.addEventListener?.('change', sync);
   start();
 
@@ -330,13 +309,14 @@ async function boot() {
     stop();
     classObserver.disconnect();
     scenes.forEach((item) => item.dispose());
+    texture.dispose();
   };
 }
 
 const schedule = (callback) =>
   'requestIdleCallback' in window
-    ? requestIdleCallback(callback, { timeout: 900 })
-    : setTimeout(callback, 100);
+    ? requestIdleCallback(callback, { timeout: 1000 })
+    : setTimeout(callback, 120);
 
-schedule(() => boot().catch((error) => console.warn('Three.js nebula effect failed.', error)));
+schedule(() => boot().catch((error) => console.warn('Three.js effects failed.', error)));
 addEventListener('beforeunload', () => teardown());
