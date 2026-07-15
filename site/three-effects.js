@@ -1,265 +1,342 @@
-const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const mobileQuery=matchMedia('(max-width: 760px)');
-const lowPower=(navigator.deviceMemory&&navigator.deviceMemory<=4)||(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4);
-const landing=document.getElementById('landing');
-const room=document.getElementById('room');
-let teardown=()=>{};
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const mobileQuery = matchMedia('(max-width: 760px)');
+const lowPower =
+  (navigator.deviceMemory && navigator.deviceMemory <= 4) ||
+  (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
 
-const randomBetween=(min,max)=>min+Math.random()*(max-min);
+const landing = document.getElementById('landing');
+const room = document.getElementById('room');
+let teardown = () => {};
 
-async function boot(){
-  if(!landing||!room)return;
+async function boot() {
+  if (!landing || !room) return;
+
   let THREE;
-  try{THREE=await import('https://esm.sh/three@0.180.0')}catch(error){console.warn('Three.js effects could not load.',error);return}
+  try {
+    THREE = await import('https://esm.sh/three@0.180.0');
+  } catch (error) {
+    console.warn('Three.js effects could not load.', error);
+    return;
+  }
 
-  const scenes=[];
-  const pointer={x:0,y:0,targetX:0,targetY:0};
-  let frameId=0,running=false,lastFrame=0;
+  const pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
+  const scenes = [];
+  let frameId = 0;
+  let running = false;
+  let lastFrame = 0;
 
-  function createSurface(host,className){
-    const layer=document.createElement('div');
-    layer.className=`three-effect-layer ${className}`;
-    layer.setAttribute('aria-hidden','true');
-    const renderer=new THREE.WebGLRenderer({alpha:true,antialias:!mobileQuery.matches&&!lowPower,powerPreference:'low-power'});
-    renderer.setClearColor(0x000000,0);
-    renderer.setPixelRatio(Math.min(devicePixelRatio||1,mobileQuery.matches||lowPower?1:1.45));
-    renderer.outputColorSpace=THREE.SRGBColorSpace;
-    renderer.domElement.setAttribute('aria-hidden','true');
-    renderer.domElement.tabIndex=-1;
+  const vertexShader = `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = vec4(position, 1.0);
+    }
+  `;
+
+  const fragmentShader = `
+    precision highp float;
+
+    varying vec2 vUv;
+    uniform vec2 uResolution;
+    uniform vec2 uPointer;
+    uniform float uTime;
+    uniform float uRoomMode;
+
+    float hash21(vec2 p) {
+      p = fract(p * vec2(123.34, 456.21));
+      p += dot(p, p + 45.32);
+      return fract(p.x * p.y);
+    }
+
+    vec2 hash22(vec2 p) {
+      float n = hash21(p);
+      return vec2(n, hash21(p + n + 19.19));
+    }
+
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+
+      float a = hash21(i);
+      float b = hash21(i + vec2(1.0, 0.0));
+      float c = hash21(i + vec2(0.0, 1.0));
+      float d = hash21(i + vec2(1.0, 1.0));
+
+      return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    }
+
+    float fbm(vec2 p) {
+      float value = 0.0;
+      float amplitude = 0.52;
+      mat2 rotation = mat2(0.80, -0.60, 0.60, 0.80);
+
+      for (int i = 0; i < 6; i++) {
+        value += amplitude * noise(p);
+        p = rotation * p * 2.03 + 13.17;
+        amplitude *= 0.50;
+      }
+      return value;
+    }
+
+    float ridged(vec2 p) {
+      float value = 0.0;
+      float amplitude = 0.55;
+      mat2 rotation = mat2(0.86, -0.51, 0.51, 0.86);
+
+      for (int i = 0; i < 5; i++) {
+        float n = noise(p);
+        n = 1.0 - abs(n * 2.0 - 1.0);
+        value += n * n * amplitude;
+        p = rotation * p * 2.14 + 7.41;
+        amplitude *= 0.48;
+      }
+      return value;
+    }
+
+    float starLayer(vec2 uv, float scale, float threshold) {
+      vec2 cell = floor(uv * scale);
+      vec2 local = fract(uv * scale) - 0.5;
+      vec2 offset = hash22(cell) - 0.5;
+      float seed = hash21(cell + 71.7);
+      float distanceToStar = length(local - offset * 0.72);
+      float star = smoothstep(0.055, 0.0, distanceToStar);
+      star *= smoothstep(threshold, 1.0, seed);
+      return star;
+    }
+
+    float flare(vec2 p, vec2 center, float size) {
+      vec2 delta = p - center;
+      float distanceValue = length(delta);
+      float core = smoothstep(size, 0.0, distanceValue);
+      float horizontal = exp(-abs(delta.y) * 130.0 / size) * exp(-abs(delta.x) * 3.0 / size);
+      float vertical = exp(-abs(delta.x) * 130.0 / size) * exp(-abs(delta.y) * 3.0 / size);
+      return core + (horizontal + vertical) * 0.32;
+    }
+
+    void main() {
+      vec2 uv = vUv;
+      vec2 p = uv - 0.5;
+      p.x *= uResolution.x / max(uResolution.y, 1.0);
+
+      vec2 pointerShift = uPointer * vec2(0.10, -0.07);
+      float slowTime = uTime * 0.018;
+
+      vec2 warpA = vec2(
+        fbm(p * 1.18 + vec2(slowTime * 0.19, -slowTime * 0.11)),
+        fbm(p * 1.18 + vec2(8.4, 3.7) + vec2(-slowTime * 0.13, slowTime * 0.17))
+      );
+
+      vec2 warped = p + (warpA - 0.5) * 1.05 + pointerShift;
+      float cloudA = fbm(warped * 1.48 + vec2(slowTime * 0.12, 0.0));
+      float cloudB = ridged(warped * 1.92 - vec2(slowTime * 0.08, slowTime * 0.04));
+      float cloudC = fbm(warped * 3.35 + vec2(-slowTime * 0.05, slowTime * 0.07));
+
+      float wisps = smoothstep(0.44, 0.82, cloudA * 0.68 + cloudB * 0.55);
+      wisps *= 0.62 + cloudC * 0.54;
+
+      float edgeBias = smoothstep(0.08, 0.90, length(p * vec2(0.82, 1.02)));
+      float centerCalm = smoothstep(0.08, 0.55, length(p * vec2(0.95, 1.10)));
+      float nebulaMask = wisps * mix(0.42, 1.0, edgeBias);
+      nebulaMask *= mix(0.56, 1.0, centerCalm);
+
+      vec3 deepSpace = vec3(0.004, 0.007, 0.030);
+      vec3 midnight = vec3(0.012, 0.025, 0.095);
+      vec3 electricBlue = vec3(0.050, 0.255, 0.950);
+      vec3 violet = vec3(0.475, 0.095, 0.940);
+      vec3 magenta = vec3(0.760, 0.180, 0.780);
+
+      float hueMix = smoothstep(0.28, 0.82, fbm(warped * 1.12 + 21.3));
+      vec3 nebulaColor = mix(electricBlue, violet, hueMix);
+      nebulaColor = mix(nebulaColor, magenta, smoothstep(0.66, 0.98, cloudB) * 0.38);
+
+      vec3 color = mix(deepSpace, midnight, cloudA * 0.48);
+      color += nebulaColor * nebulaMask * (uRoomMode > 0.5 ? 0.58 : 0.86);
+      color += vec3(0.12, 0.18, 0.55) * pow(max(cloudB - 0.54, 0.0), 2.0) * 1.55;
+
+      vec2 starUv = uv + uPointer * 0.004;
+      float stars = starLayer(starUv, 92.0, 0.965);
+      stars += starLayer(starUv + 0.137, 154.0, 0.986) * 0.72;
+      stars += starLayer(starUv + 0.413, 245.0, 0.994) * 0.45;
+
+      float twinkle = 0.78 + 0.22 * sin(uTime * 1.35 + hash21(floor(starUv * 92.0)) * 18.0);
+      color += vec3(0.72, 0.83, 1.0) * stars * twinkle;
+
+      float brightStars = 0.0;
+      brightStars += flare(p, vec2(-0.30, 0.18), 0.022);
+      brightStars += flare(p, vec2(0.31, -0.16), 0.017) * 0.82;
+      brightStars += flare(p, vec2(0.23, 0.27), 0.012) * 0.62;
+      color += vec3(0.72, 0.84, 1.0) * brightStars;
+
+      float vignette = smoothstep(0.95, 0.18, length(p * vec2(0.76, 0.95)));
+      color *= 0.62 + vignette * 0.52;
+
+      if (uRoomMode > 0.5) {
+        float readableCenter = 1.0 - smoothstep(0.08, 0.48, length(p * vec2(0.92, 1.18)));
+        color *= 1.0 - readableCenter * 0.18;
+      }
+
+      color = pow(color, vec3(0.90));
+      gl_FragColor = vec4(color, 1.0);
+    }
+  `;
+
+  function createSurface(host, className, roomMode) {
+    const layer = document.createElement('div');
+    layer.className = `three-effect-layer ${className}`;
+    layer.setAttribute('aria-hidden', 'true');
+
+    const renderer = new THREE.WebGLRenderer({
+      alpha: false,
+      antialias: !mobileQuery.matches && !lowPower,
+      powerPreference: 'low-power',
+    });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mobileQuery.matches || lowPower ? 1 : 1.35));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.domElement.setAttribute('aria-hidden', 'true');
+    renderer.domElement.tabIndex = -1;
     layer.append(renderer.domElement);
     host.prepend(layer);
-    return{host,layer,renderer,width:1,height:1,resizeObserver:null};
-  }
 
-  function attachResize(surface,camera,onResize){
-    const resize=()=>{
-      const rect=surface.host.getBoundingClientRect();
-      const width=Math.max(1,Math.floor(rect.width));
-      const height=Math.max(1,Math.floor(rect.height));
-      if(width===surface.width&&height===surface.height)return;
-      surface.width=width;surface.height=height;
-      surface.renderer.setSize(width,height,false);
-      camera.aspect=width/height;
-      camera.updateProjectionMatrix();
-      onResize?.(width,height);
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const geometry = new THREE.PlaneGeometry(2, 2);
+    const uniforms = {
+      uResolution: { value: new THREE.Vector2(1, 1) },
+      uPointer: { value: new THREE.Vector2(0, 0) },
+      uTime: { value: 0 },
+      uRoomMode: { value: roomMode ? 1 : 0 },
     };
-    surface.resizeObserver=new ResizeObserver(resize);
-    surface.resizeObserver.observe(surface.host);
+    const material = new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms, depthWrite: false, depthTest: false });
+    const plane = new THREE.Mesh(geometry, material);
+    scene.add(plane);
+
+    let width = 1;
+    let height = 1;
+    const resize = () => {
+      const rect = host.getBoundingClientRect();
+      const nextWidth = Math.max(1, Math.floor(rect.width));
+      const nextHeight = Math.max(1, Math.floor(rect.height));
+      if (nextWidth === width && nextHeight === height) return;
+      width = nextWidth;
+      height = nextHeight;
+      renderer.setSize(width, height, false);
+      uniforms.uResolution.value.set(width, height);
+    };
+
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(host);
     resize();
-    return resize;
-  }
 
-  function createLandingScene(){
-    const surface=createSurface(landing,'three-landing-layer');
-    const scene=new THREE.Scene();
-    const camera=new THREE.PerspectiveCamera(52,1,.1,100);
-    camera.position.set(0,0,8.5);
-    const group=new THREE.Group();
-    scene.add(group);
-
-    const count=mobileQuery.matches||lowPower?130:280;
-    const positions=new Float32Array(count*3);
-    const colors=new Float32Array(count*3);
-    const colorA=new THREE.Color(0x8b7cf6),colorB=new THREE.Color(0x70dfc0),mixed=new THREE.Color();
-    for(let i=0;i<count;i++){
-      const radius=randomBetween(1.7,5.8),theta=Math.random()*Math.PI*2,phi=Math.acos(randomBetween(-1,1));
-      positions[i*3]=radius*Math.sin(phi)*Math.cos(theta);
-      positions[i*3+1]=radius*Math.cos(phi)*.72;
-      positions[i*3+2]=radius*Math.sin(phi)*Math.sin(theta)*.7;
-      mixed.copy(colorA).lerp(colorB,Math.random());
-      colors[i*3]=mixed.r;colors[i*3+1]=mixed.g;colors[i*3+2]=mixed.b;
-    }
-    const particleGeometry=new THREE.BufferGeometry();
-    particleGeometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
-    particleGeometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
-    const particleMaterial=new THREE.PointsMaterial({size:mobileQuery.matches?.045:.055,transparent:true,opacity:.78,vertexColors:true,depthWrite:false,blending:THREE.AdditiveBlending});
-    const particles=new THREE.Points(particleGeometry,particleMaterial);
-    group.add(particles);
-
-    const knotGeometry=new THREE.TorusKnotGeometry(1.45,.28,mobileQuery.matches?72:120,12,2,3);
-    const knotMaterial=new THREE.MeshBasicMaterial({color:0x8b7cf6,wireframe:true,transparent:true,opacity:.14,depthWrite:false});
-    const knot=new THREE.Mesh(knotGeometry,knotMaterial);
-    group.add(knot);
-    const haloGeometry=new THREE.TorusGeometry(2.65,.018,8,160);
-    const haloMaterial=new THREE.MeshBasicMaterial({color:0x70dfc0,transparent:true,opacity:.35,depthWrite:false});
-    const halo=new THREE.Mesh(haloGeometry,haloMaterial);
-    halo.rotation.x=1.05;halo.rotation.y=.35;group.add(halo);
-
-    const resize=attachResize(surface,camera);
-    const update=time=>{
-      pointer.x+=(pointer.targetX-pointer.x)*.035;pointer.y+=(pointer.targetY-pointer.y)*.035;
-      group.rotation.y=time*.000055+pointer.x*.16;
-      group.rotation.x=Math.sin(time*.00012)*.08+pointer.y*.1;
-      knot.rotation.x=time*.00018;knot.rotation.z=time*.00012;halo.rotation.z=-time*.00008;
-      camera.position.x=pointer.x*.28;camera.position.y=-pointer.y*.2;camera.lookAt(0,0,0);
+    return {
+      host,
+      layer,
+      renderer,
+      scene,
+      camera,
+      resize,
+      update(time) {
+        pointer.x += (pointer.targetX - pointer.x) * 0.028;
+        pointer.y += (pointer.targetY - pointer.y) * 0.028;
+        uniforms.uTime.value = time * 0.001;
+        uniforms.uPointer.value.set(pointer.x, pointer.y);
+      },
+      dispose() {
+        resizeObserver.disconnect();
+        geometry.dispose();
+        material.dispose();
+        renderer.dispose();
+        layer.remove();
+      },
     };
-    return{surface,scene,camera,resize,update,dispose(){particleGeometry.dispose();particleMaterial.dispose();knotGeometry.dispose();knotMaterial.dispose();haloGeometry.dispose();haloMaterial.dispose()}};
   }
 
-  function createGalaxyGlowTexture(){
-    const size=256,canvas=document.createElement('canvas');
-    canvas.width=canvas.height=size;
-    const context=canvas.getContext('2d');
-    const gradient=context.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
-    gradient.addColorStop(0,'rgba(255,244,218,0.98)');
-    gradient.addColorStop(.1,'rgba(255,222,171,0.82)');
-    gradient.addColorStop(.28,'rgba(194,165,255,0.38)');
-    gradient.addColorStop(.58,'rgba(101,119,255,0.13)');
-    gradient.addColorStop(1,'rgba(56,65,180,0)');
-    context.fillStyle=gradient;context.fillRect(0,0,size,size);
-    const texture=new THREE.CanvasTexture(canvas);
-    texture.colorSpace=THREE.SRGBColorSpace;
-    texture.needsUpdate=true;
-    return texture;
+  let landingScene;
+  let roomScene;
+  try {
+    landingScene = createSurface(landing, 'three-landing-layer', false);
+    roomScene = createSurface(room, 'three-room-layer', true);
+    scenes.push(landingScene, roomScene);
+  } catch (error) {
+    console.warn('WebGL effects are unavailable.', error);
+    scenes.forEach((item) => item?.dispose?.());
+    return;
   }
 
-  function createRoomScene(){
-    const surface=createSurface(room,'three-room-layer');
-    const scene=new THREE.Scene();
-    const camera=new THREE.PerspectiveCamera(48,1,.1,180);
-    const galaxy=new THREE.Group();
-    galaxy.rotation.x=.92;
-    galaxy.rotation.z=-.28;
-    scene.add(galaxy);
-    const disposeList=[];
-    const cameraBase={x:0,y:7.2,z:14.5};
+  const activeScene = () =>
+    !landing.classList.contains('hidden')
+      ? landingScene
+      : !room.classList.contains('hidden')
+        ? roomScene
+        : null;
 
-    const starCount=mobileQuery.matches||lowPower?950:2400;
-    const arms=4;
-    const radiusMax=mobileQuery.matches?10.5:13.5;
-    const positions=new Float32Array(starCount*3);
-    const colors=new Float32Array(starCount*3);
-    const coreColor=new THREE.Color(0xffe7bd);
-    const armColor=new THREE.Color(0x9eb4ff);
-    const edgeColor=new THREE.Color(0x725ee8);
-    const mixed=new THREE.Color();
-
-    for(let i=0;i<starCount;i++){
-      const normalized=Math.pow(Math.random(),1.5);
-      const radius=normalized*radiusMax;
-      const arm=i%arms;
-      const baseAngle=arm/arms*Math.PI*2;
-      const spin=radius*.72;
-      const angle=baseAngle+spin+randomBetween(-.34,.34);
-      const spread=.14+radius*.085;
-      positions[i*3]=Math.cos(angle)*radius+randomBetween(-spread,spread);
-      positions[i*3+1]=randomBetween(-.12,.12)+randomBetween(-.24,.24)*(1-normalized);
-      positions[i*3+2]=Math.sin(angle)*radius+randomBetween(-spread,spread);
-      mixed.copy(coreColor).lerp(armColor,Math.min(1,normalized*.88)).lerp(edgeColor,Math.random()*.2*normalized);
-      colors[i*3]=mixed.r;colors[i*3+1]=mixed.g;colors[i*3+2]=mixed.b;
-    }
-
-    const galaxyGeometry=new THREE.BufferGeometry();
-    galaxyGeometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
-    galaxyGeometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
-    const galaxyMaterial=new THREE.PointsMaterial({
-      size:mobileQuery.matches?.075:.092,
-      transparent:true,
-      opacity:mobileQuery.matches?.67:.75,
-      vertexColors:true,
-      depthWrite:false,
-      blending:THREE.AdditiveBlending,
-      sizeAttenuation:true,
-    });
-    const galaxyStars=new THREE.Points(galaxyGeometry,galaxyMaterial);
-    galaxy.add(galaxyStars);
-    disposeList.push(galaxyGeometry,galaxyMaterial);
-
-    const dustCount=mobileQuery.matches||lowPower?320:720;
-    const dustPositions=new Float32Array(dustCount*3);
-    const dustColors=new Float32Array(dustCount*3);
-    const dustA=new THREE.Color(0x7f65d9),dustB=new THREE.Color(0x274c98);
-    for(let i=0;i<dustCount;i++){
-      const normalized=Math.pow(Math.random(),1.15);
-      const radius=normalized*radiusMax*.92;
-      const arm=i%arms;
-      const angle=arm/arms*Math.PI*2+radius*.72+randomBetween(-.58,.58);
-      const spread=.35+radius*.12;
-      dustPositions[i*3]=Math.cos(angle)*radius+randomBetween(-spread,spread);
-      dustPositions[i*3+1]=randomBetween(-.22,.22);
-      dustPositions[i*3+2]=Math.sin(angle)*radius+randomBetween(-spread,spread);
-      mixed.copy(dustA).lerp(dustB,Math.random());
-      dustColors[i*3]=mixed.r;dustColors[i*3+1]=mixed.g;dustColors[i*3+2]=mixed.b;
-    }
-    const dustGeometry=new THREE.BufferGeometry();
-    dustGeometry.setAttribute('position',new THREE.BufferAttribute(dustPositions,3));
-    dustGeometry.setAttribute('color',new THREE.BufferAttribute(dustColors,3));
-    const dustMaterial=new THREE.PointsMaterial({size:mobileQuery.matches?.13:.17,transparent:true,opacity:.075,vertexColors:true,depthWrite:false,blending:THREE.AdditiveBlending});
-    const dust=new THREE.Points(dustGeometry,dustMaterial);
-    galaxy.add(dust);
-    disposeList.push(dustGeometry,dustMaterial);
-
-    const coreTexture=createGalaxyGlowTexture();
-    const coreMaterial=new THREE.SpriteMaterial({map:coreTexture,transparent:true,opacity:.76,depthWrite:false,blending:THREE.AdditiveBlending});
-    const core=new THREE.Sprite(coreMaterial);
-    const coreSize=mobileQuery.matches?6.1:7.6;
-    core.scale.set(coreSize,coreSize,1);
-    galaxy.add(core);
-    disposeList.push(coreTexture,coreMaterial);
-
-    const backgroundCount=mobileQuery.matches||lowPower?220:480;
-    const backgroundPositions=new Float32Array(backgroundCount*3);
-    for(let i=0;i<backgroundCount;i++){
-      const radius=randomBetween(20,46),theta=Math.random()*Math.PI*2,phi=Math.acos(randomBetween(-1,1));
-      backgroundPositions[i*3]=radius*Math.sin(phi)*Math.cos(theta);
-      backgroundPositions[i*3+1]=radius*Math.cos(phi);
-      backgroundPositions[i*3+2]=radius*Math.sin(phi)*Math.sin(theta);
-    }
-    const backgroundGeometry=new THREE.BufferGeometry();
-    backgroundGeometry.setAttribute('position',new THREE.BufferAttribute(backgroundPositions,3));
-    const backgroundMaterial=new THREE.PointsMaterial({color:0xcbd5ff,size:mobileQuery.matches?.055:.072,transparent:true,opacity:.42,depthWrite:false,blending:THREE.AdditiveBlending});
-    const backgroundStars=new THREE.Points(backgroundGeometry,backgroundMaterial);
-    scene.add(backgroundStars);
-    disposeList.push(backgroundGeometry,backgroundMaterial);
-
-    const updateCamera=(width,height)=>{
-      const compact=width<780;
-      const veryTall=height>width*1.45;
-      if(compact&&veryTall)Object.assign(cameraBase,{x:0,y:9.2,z:12.8});
-      else if(compact)Object.assign(cameraBase,{x:0,y:7.8,z:13.8});
-      else Object.assign(cameraBase,{x:.8,y:6.8,z:14.8});
-      camera.position.set(cameraBase.x,cameraBase.y,cameraBase.z);
-      camera.lookAt(0,0,0);
-    };
-    const resize=attachResize(surface,camera,updateCamera);
-    const update=time=>{
-      pointer.x+=(pointer.targetX-pointer.x)*.022;
-      pointer.y+=(pointer.targetY-pointer.y)*.022;
-      galaxy.rotation.y=time*.00004+pointer.x*.045;
-      galaxy.rotation.z=-.28+Math.sin(time*.000025)*.016;
-      galaxy.rotation.x=.92+pointer.y*.025;
-      dust.rotation.y=-time*.000012;
-      backgroundStars.rotation.y=-time*.000006;
-      const pulse=1+Math.sin(time*.0014)*.035;
-      core.scale.set(coreSize*pulse,coreSize*pulse,1);
-      core.material.opacity=.7+Math.sin(time*.0011)*.07;
-      camera.position.set(cameraBase.x+pointer.x*.5,cameraBase.y-pointer.y*.18,cameraBase.z);
-      camera.lookAt(0,0,0);
-    };
-    return{surface,scene,camera,update,resize,dispose(){disposeList.forEach(resource=>resource.dispose?.())}};
+  function renderOnce(time = performance.now()) {
+    const active = activeScene();
+    if (!active) return;
+    active.resize();
+    active.update(time);
+    active.renderer.render(active.scene, active.camera);
   }
 
-  let landingScene,roomScene;
-  try{landingScene=createLandingScene();roomScene=createRoomScene();scenes.push(landingScene,roomScene)}catch(error){console.warn('WebGL effects are unavailable.',error);scenes.forEach(item=>item?.surface?.layer?.remove());return}
+  function animate(time) {
+    if (!running) return;
+    const frameGap = mobileQuery.matches || lowPower ? 50 : 33;
+    if (time - lastFrame >= frameGap) {
+      lastFrame = time;
+      renderOnce(time);
+    }
+    frameId = requestAnimationFrame(animate);
+  }
 
-  const activeScene=()=>!landing.classList.contains('hidden')?landingScene:!room.classList.contains('hidden')?roomScene:null;
-  function renderOnce(time=performance.now()){const active=activeScene();if(!active)return;active.resize();active.update(time);active.surface.renderer.render(active.scene,active.camera)}
-  function animate(time){if(!running)return;const frameGap=mobileQuery.matches||lowPower?50:33;if(time-lastFrame>=frameGap){lastFrame=time;renderOnce(time)}frameId=requestAnimationFrame(animate)}
-  function start(){if(running||document.hidden)return;if(reducedMotion){renderOnce();return}running=true;lastFrame=0;frameId=requestAnimationFrame(animate)}
-  function stop(){running=false;cancelAnimationFrame(frameId)}
-  function sync(){stop();renderOnce();start()}
+  function start() {
+    if (running || document.hidden) return;
+    if (reducedMotion) {
+      renderOnce();
+      return;
+    }
+    running = true;
+    lastFrame = 0;
+    frameId = requestAnimationFrame(animate);
+  }
 
-  const classObserver=new MutationObserver(sync);
-  classObserver.observe(landing,{attributes:true,attributeFilter:['class']});
-  classObserver.observe(room,{attributes:true,attributeFilter:['class']});
-  addEventListener('pointermove',event=>{pointer.targetX=(event.clientX/Math.max(innerWidth,1)-.5)*2;pointer.targetY=(event.clientY/Math.max(innerHeight,1)-.5)*2},{passive:true});
-  addEventListener('visibilitychange',()=>document.hidden?stop():start());
-  mobileQuery.addEventListener?.('change',sync);
+  function stop() {
+    running = false;
+    cancelAnimationFrame(frameId);
+  }
+
+  function sync() {
+    stop();
+    renderOnce();
+    start();
+  }
+
+  const classObserver = new MutationObserver(sync);
+  classObserver.observe(landing, { attributes: true, attributeFilter: ['class'] });
+  classObserver.observe(room, { attributes: true, attributeFilter: ['class'] });
+
+  addEventListener(
+    'pointermove',
+    (event) => {
+      pointer.targetX = (event.clientX / Math.max(innerWidth, 1) - 0.5) * 2;
+      pointer.targetY = (event.clientY / Math.max(innerHeight, 1) - 0.5) * 2;
+    },
+    { passive: true },
+  );
+  addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+  mobileQuery.addEventListener?.('change', sync);
   start();
 
-  teardown=()=>{stop();classObserver.disconnect();scenes.forEach(item=>{item.surface.resizeObserver?.disconnect();item.dispose();item.surface.renderer.dispose();item.surface.layer.remove()})};
+  teardown = () => {
+    stop();
+    classObserver.disconnect();
+    scenes.forEach((item) => item.dispose());
+  };
 }
 
-const schedule=callback=>'requestIdleCallback'in window?requestIdleCallback(callback,{timeout:1000}):setTimeout(callback,120);
-schedule(()=>boot().catch(error=>console.warn('Three.js effects failed.',error)));
-addEventListener('beforeunload',()=>teardown());
+const schedule = (callback) =>
+  'requestIdleCallback' in window
+    ? requestIdleCallback(callback, { timeout: 900 })
+    : setTimeout(callback, 100);
+
+schedule(() => boot().catch((error) => console.warn('Three.js nebula effect failed.', error)));
+addEventListener('beforeunload', () => teardown());
