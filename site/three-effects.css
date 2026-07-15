@@ -4,7 +4,7 @@
 .three-landing-layer{opacity:.92;mix-blend-mode:screen}
 .three-room-layer{right:290px;opacity:.52;mix-blend-mode:screen}
 .landing>.card{position:relative;z-index:2;background:linear-gradient(145deg,#111520e8,#10141ee0);backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%)}
-.room>.chat,.room>.people{position:relative;z-index:2}
+.room>.chat{position:relative;z-index:2}
 .messages{background:linear-gradient(180deg,#090b1266,#090b1218 48%,#090b1266)}
 .top,.composer,.people{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 @media(max-width:900px){.three-room-layer{right:280px}}
