@@ -5,11 +5,32 @@
 .three-room-layer{right:300px;z-index:1;opacity:1;mix-blend-mode:normal;background:radial-gradient(circle at 50% 48%,#22170433 0,#0a0d1838 34%,#05070d 78%)}
 .three-room-layer::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 22%,#070a1166 66%,#070a11c7 100%)}
 .landing>.card{position:relative;z-index:2;background:linear-gradient(145deg,#111520e8,#10141ee0);backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%)}
-.room>.chat{position:relative;z-index:2;background:transparent!important}
-.room>.people{position:relative;z-index:25}
+.room>.chat{position:relative;z-index:2;min-width:0;min-height:0;height:100%;background:transparent!important}
+.room>.people{z-index:25}
 .messages{background:linear-gradient(180deg,#090b1280,#090b1218 38%,#090b1248 72%,#090b1288)!important}
 .top,.composer,.people{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .bubble{box-shadow:0 8px 24px #00000038}
 @media(max-width:900px){.three-room-layer{right:280px}}
-@media(max-width:760px){.three-landing-layer{opacity:.68}.three-room-layer{right:0;opacity:.92;background:radial-gradient(circle at 50% 45%,#22170440 0,#080b1438 42%,#05070d 84%)}.three-room-layer::after{background:radial-gradient(ellipse at center,transparent 18%,#070a116e 68%,#070a11d9 100%)}.landing>.card{backdrop-filter:blur(13px) saturate(115%);-webkit-backdrop-filter:blur(13px) saturate(115%)}.messages{background:linear-gradient(180deg,#090b127a,#090b1224 42%,#090b126e)!important}}
+@media(max-width:760px){
+  html,body{width:100%;height:100%;overflow:hidden}
+  .room{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr)!important;width:100%!important;height:100dvh!important;min-height:100dvh!important;overflow:hidden!important}
+  .room>.chat{grid-column:1;grid-row:1;width:100%;height:100%;min-height:0;overflow:hidden}
+  .room>.people{position:fixed!important;left:auto!important;right:0!important;top:0!important;bottom:0!important;width:min(90vw,360px)!important;height:100dvh!important;min-height:0!important;transform:translateX(105%);z-index:50!important;overflow-y:auto!important}
+  .room>.people.open{transform:translateX(0)}
+  .people-backdrop{position:fixed!important;inset:0!important;z-index:45!important}
+  .three-landing-layer{opacity:.68}
+  .three-room-layer{inset:0!important;right:0!important;z-index:1;opacity:.92;background:radial-gradient(circle at 50% 45%,#22170440 0,#080b1438 42%,#05070d 84%)}
+  .three-room-layer::after{background:radial-gradient(ellipse at center,transparent 18%,#070a116e 68%,#070a11d9 100%)}
+  .landing>.card{backdrop-filter:blur(13px) saturate(115%);-webkit-backdrop-filter:blur(13px) saturate(115%)}
+  .top{min-width:0;overflow:hidden}
+  .room-meta{min-width:0}
+  .actions{min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .actions::-webkit-scrollbar{display:none}
+  .messages{min-height:0;overflow-y:auto;background:linear-gradient(180deg,#090b127a,#090b1224 42%,#090b126e)!important}
+  .composer{position:relative;z-index:4;flex:0 0 auto}
+}
+@media(max-width:420px){
+  .actions .secondary{white-space:nowrap}
+  .three-room-layer{opacity:.86}
+}
 @media(prefers-reduced-motion:reduce){.three-effect-layer{opacity:.48!important}}
