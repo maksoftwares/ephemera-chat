@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="./pwa.css">
   <link rel="stylesheet" href="./media-preview.css">
   <link rel="stylesheet" href="./room-history.css">
+  <link rel="stylesheet" href="./background-presence.css">
 </head>
 <body>
   <section class="landing" id="landing">
@@ -47,6 +48,7 @@
           <button class="secondary room-rename-action" id="renameRoomBtn" type="button">Rename</button>
           <button class="secondary install-button hidden" data-install type="button">Install</button>
           <button class="secondary" id="notifyBtn" type="button">Alerts</button>
+          <button class="secondary" id="backgroundModeBtn" type="button" aria-pressed="false">Stay online</button>
           <button class="secondary hide-mobile" id="copy" type="button">Copy link</button>
           <button class="secondary hide-mobile" id="clear" type="button">Clear view</button>
           <button class="secondary leave-action" id="leave" type="button">Leave</button>
@@ -63,9 +65,10 @@
     <button class="people-backdrop" id="peopleBackdrop" aria-label="Close people panel" type="button"></button>
     <aside class="people" id="peoplePanel" aria-label="People and room actions">
       <div class="people-header"><div><h3>People (<span id="count">1</span>)</h3><p>Everyone currently connected</p></div><button class="panel-close" id="peopleClose" aria-label="Close people panel" type="button">×</button></div>
-      <div class="panel-actions"><button class="secondary" id="panelInviteBtn" type="button">Invite people</button><button class="secondary" id="groupVoiceBtn" type="button">Group voice</button><button class="secondary" id="groupVideoBtn" type="button">Group video</button></div>
+      <div class="panel-actions"><button class="secondary" id="panelInviteBtn" type="button">Invite people</button><button class="secondary" id="groupVoiceBtn" type="button">Group voice</button><button class="secondary" id="groupVideoBtn" type="button">Group video</button><button class="secondary" id="panelBackgroundBtn" type="button" aria-pressed="false">Stay online</button></div>
       <div class="people-list" id="people"></div>
       <p class="panel-note">Use the phone or camera beside a participant for a private call, or start a room-wide group call above.</p>
+      <p class="background-note">Stay online uses a near-silent media session to reduce Android background suspension. The operating system may still stop the PWA under battery or memory pressure.</p>
     </aside>
   </section>
 
@@ -90,6 +93,7 @@
   </section>
 
   <div aria-live="polite" class="toast" id="toast" role="status"></div>
+  <script src="./background-presence.js" type="module"></script>
   <script src="./app.js" type="module"></script>
   <script src="./room-history.js" type="module"></script>
   <script src="./media-preview.js" type="module"></script>
