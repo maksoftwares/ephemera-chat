@@ -1,5 +1,5 @@
-const STATIC_CACHE='ephemera-static-v11';
-const RUNTIME_CACHE='ephemera-runtime-v11';
+const STATIC_CACHE='ephemera-static-v12';
+const RUNTIME_CACHE='ephemera-runtime-v12';
 const APP_SHELL=['./','./index.html','./styles.css','./pwa.css','./media-preview.css','./room-history.css','./background-presence.css','./three-effects.css','./background-presence.js','./app.js','./call-decline-fix.js','./room-history.js','./media-preview.js','./call-experience.js','./pwa.js','./three-effects.js','./manifest.webmanifest','./icons/icon.svg','./icons/icon-192.svg','./icons/icon-512.svg','./icons/icon-maskable.svg'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(STATIC_CACHE).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>![STATIC_CACHE,RUNTIME_CACHE].includes(key)).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
