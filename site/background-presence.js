@@ -1,10 +1,14 @@
 const STORAGE_KEY='ephemera.backgroundMode.v1';
 const RECOVERY_KEY='ephemera.lastRecovery.v1';
+const nativeAndroid=Boolean(globalThis.EphemeraAndroid);
 const buttons=()=>[document.getElementById('backgroundModeBtn'),document.getElementById('panelBackgroundBtn')].filter(Boolean);
 const trackedConnections=new Set();
 const NativePeerConnection=globalThis.RTCPeerConnection;
 
-if(NativePeerConnection){
+// Browser PWAs use connection tracking for resume recovery. Android WebView must
+// keep Chromium's native RTCPeerConnection constructor intact; replacing it can
+// interfere with WebRTC implementation details on some System WebView versions.
+if(NativePeerConnection&&!nativeAndroid){
   class TrackedPeerConnection extends NativePeerConnection{
     constructor(...args){
       super(...args);
@@ -22,7 +26,7 @@ let oscillator=null;
 let gainNode=null;
 let destination=null;
 let audioElement=null;
-let enabled=false;
+let enabled=nativeAndroid;
 let hiddenAt=document.hidden?Date.now():0;
 let recoveryTimer=null;
 
@@ -36,6 +40,16 @@ const notify=text=>{
 };
 
 function updateButtons(){
+  if(nativeAndroid){
+    buttons().forEach(button=>{
+      button.textContent='Native background';
+      button.classList.add('background-on');
+      button.setAttribute('aria-pressed','true');
+      button.disabled=true;
+      button.title='Android foreground service keeps the current room process active.';
+    });
+    return;
+  }
   const label=enabled?'Background on':storedEnabled()?'Resume background':'Stay online';
   buttons().forEach(button=>{
     button.textContent=label;
@@ -55,6 +69,11 @@ function configureMediaSession(){
 }
 
 async function startBackgroundMode(showMessage=true){
+  if(nativeAndroid){
+    enabled=true;updateButtons();
+    if(showMessage)notify('Android native background service is active.');
+    return;
+  }
   if(enabled)return;
   try{
     const AudioContextClass=window.AudioContext||window.webkitAudioContext;
@@ -84,6 +103,11 @@ async function startBackgroundMode(showMessage=true){
 }
 
 function stopBackgroundMode(showMessage=true){
+  if(nativeAndroid){
+    enabled=true;updateButtons();
+    if(showMessage)notify('Android native background service remains active while the room is open.');
+    return;
+  }
   try{oscillator?.stop()}catch{}
   try{audioElement?.pause()}catch{}
   if(audioElement)audioElement.srcObject=null;
@@ -100,6 +124,7 @@ async function toggleBackgroundMode(){
 }
 
 function connectionAlive(){
+  if(nativeAndroid)return navigator.onLine;
   for(const connection of trackedConnections){
     const state=connection.connectionState;
     const ice=connection.iceConnectionState;
@@ -127,10 +152,10 @@ function recoverConnection(reason){
   setTimeout(()=>location.reload(),350);
 }
 
-buttons().forEach(button=>button.addEventListener('click',toggleBackgroundMode));
+if(!nativeAndroid)buttons().forEach(button=>button.addEventListener('click',toggleBackgroundMode));
 addEventListener('visibilitychange',()=>{
   if(document.hidden){hiddenAt=Date.now();return}
-  if(storedEnabled()&&!enabled)startBackgroundMode(false).catch(()=>{});
+  if(!nativeAndroid&&storedEnabled()&&!enabled)startBackgroundMode(false).catch(()=>{});
   scheduleRecovery('background suspension');
 });
 addEventListener('focus',()=>scheduleRecovery('focus return'));
