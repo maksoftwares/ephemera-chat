@@ -6,15 +6,21 @@ import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import android.view.ViewGroup
+import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,6 +33,7 @@ import java.lang.ref.WeakReference
 class MainActivity : AppCompatActivity() {
     companion object {
         private const val APP_URL = "https://appassets.androidplatform.net/assets/www/index.html"
+        private const val LOG_TAG = "EphemeraWebView"
         private var current: WeakReference<MainActivity>? = null
 
         fun dispatchNativeCallAction(action: String) {
@@ -35,10 +42,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var webView: WebView
+    private lateinit var connectivityManager: ConnectivityManager
+    private var networkCallbackRegistered = false
     private var pageReady = false
     private var pendingCallAction: String? = null
     private var pendingWebPermission: PermissionRequest? = null
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            dispatchBrowserConnectivity(true)
+        }
+
+        override fun onLost(network: Network) {
+            dispatchBrowserConnectivity(connectivityManager.activeNetwork != null)
+        }
+    }
 
     private val notificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         maybeOfferFullScreenCallPermission()
@@ -67,10 +86,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         current = WeakReference(this)
         NativeCallNotifications.createChannels(this)
+        connectivityManager = getSystemService(ConnectivityManager::class.java)
 
         webView = WebView(this)
+        webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true)
         setContentView(webView, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         configureWebView()
+        registerNetworkCallback()
         requestNotificationPermission()
 
         pendingCallAction = intent.getStringExtra(NativeCallNotifications.EXTRA_CALL_ACTION)
@@ -108,19 +130,27 @@ class MainActivity : AppCompatActivity() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
+            databaseEnabled = true
             mediaPlaybackRequiresUserGesture = false
             allowFileAccess = false
             allowContentAccess = true
             javaScriptCanOpenWindowsAutomatically = false
+            blockNetworkLoads = false
+            cacheMode = WebSettings.LOAD_DEFAULT
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            safeBrowsingEnabled = true
+            offscreenPreRaster = true
+            userAgentString = "$userAgentString EphemeraAndroid/1.0.1"
         }
         webView.addJavascriptInterface(AndroidBridge(), "EphemeraAndroid")
         webView.webViewClient = object : WebViewClientCompat() {
-            override fun shouldInterceptRequest(view: WebView, request: android.webkit.WebResourceRequest) =
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
                 assetLoader.shouldInterceptRequest(request.url)
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 pageReady = true
+                dispatchBrowserConnectivity(connectivityManager.activeNetwork != null)
                 pendingCallAction?.let {
                     pendingCallAction = null
                     runNativeCallAction(it)
@@ -128,6 +158,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                Log.d(LOG_TAG, "${consoleMessage.messageLevel()}: ${consoleMessage.message()} @${consoleMessage.sourceId()}:${consoleMessage.lineNumber()}")
+                return true
+            }
+
             override fun onPermissionRequest(request: PermissionRequest) {
                 runOnUiThread {
                     val required = mutableListOf<String>()
@@ -160,6 +195,24 @@ class MainActivity : AppCompatActivity() {
                     false
                 }
             }
+        }
+    }
+
+    private fun registerNetworkCallback() {
+        if (networkCallbackRegistered) return
+        try {
+            connectivityManager.registerDefaultNetworkCallback(networkCallback)
+            networkCallbackRegistered = true
+        } catch (error: RuntimeException) {
+            Log.w(LOG_TAG, "Could not register network callback", error)
+        }
+    }
+
+    private fun dispatchBrowserConnectivity(online: Boolean) {
+        if (!::webView.isInitialized || !pageReady) return
+        runOnUiThread {
+            val event = if (online) "online" else "offline"
+            webView.evaluateJavascript("window.dispatchEvent(new Event('$event'))", null)
         }
     }
 
@@ -212,6 +265,14 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         pendingWebPermission?.deny()
         fileChooserCallback?.onReceiveValue(null)
+        if (networkCallbackRegistered) {
+            try {
+                connectivityManager.unregisterNetworkCallback(networkCallback)
+            } catch (_: RuntimeException) {
+                // The callback may already be unregistered during process teardown.
+            }
+            networkCallbackRegistered = false
+        }
         if (isFinishing) {
             stopService(Intent(this, ConnectionService::class.java))
             webView.destroy()
