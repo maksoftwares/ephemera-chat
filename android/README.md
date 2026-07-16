@@ -22,6 +22,8 @@ For a local build, install Android SDK 35 and Gradle 8.9, then run:
 gradle -p android :app:assembleRelease
 ```
 
+Successful workflow runs publish an artifact named `ephemera-android-apk`.
+
 ## Limitation
 
 The APK can receive peer-to-peer call invitations while its foreground connection service and WebView process remain alive. Reliable calls after Android force-stops or kills the process require a push-signalling backend such as Firebase Cloud Messaging.
