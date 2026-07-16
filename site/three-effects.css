@@ -8,7 +8,6 @@
 .landing>.card{position:relative;z-index:2;background:linear-gradient(145deg,#111520e8,#10141edf);backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%)}
 .room>.chat{position:relative;z-index:2;min-width:0;min-height:0;height:100%;background:transparent!important}
 .room>.people{z-index:25}
-.messages{background:linear-gradient(180deg,#05071170,#05071114 34%,#0507113f 72%,#05071184)!important}
 .top,.composer,.people{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .bubble{box-shadow:0 8px 24px #00000042}
 @media(max-width:900px){.three-room-layer{right:280px}}
@@ -27,7 +26,7 @@
   .room-meta{min-width:0}
   .actions{min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .actions::-webkit-scrollbar{display:none}
-  .messages{min-height:0;overflow-y:auto;background:linear-gradient(180deg,#05071168,#0507111d 40%,#0507116b)!important}
+  .messages{min-height:0;overflow-y:auto}
   .composer{position:relative;z-index:4;flex:0 0 auto}
 }
 @media(max-width:420px){.actions .secondary{white-space:nowrap}.three-room-layer{opacity:.90}}
