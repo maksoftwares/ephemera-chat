@@ -8,6 +8,11 @@ on:
       - "android/**"
       - "site/**"
       - ".github/workflows/build-android-apk.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - "site/**"
+      - ".github/workflows/build-android-apk.yml"
 
 permissions:
   contents: read
