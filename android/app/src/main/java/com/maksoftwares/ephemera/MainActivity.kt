@@ -19,7 +19,6 @@ import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -147,11 +146,6 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClientCompat() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
                 assetLoader.shouldInterceptRequest(request.url)
-
-            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                super.onReceivedError(view, request, error)
-                Log.w(LOG_TAG, "Resource error ${request.url}: ${error.errorCode} ${error.description}")
-            }
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
