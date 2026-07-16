@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Ephemera</string>
+    <string name="call_channel_name">Incoming calls</string>
+    <string name="connection_channel_name">Room connection</string>
+</resources>
