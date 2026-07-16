@@ -1,0 +1,20 @@
+<resources>
+    <style name="Theme.Ephemera" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">@color/ephemera_background</item>
+        <item name="android:colorAccent">@color/ephemera_purple</item>
+        <item name="android:navigationBarColor">@color/ephemera_background</item>
+        <item name="android:statusBarColor">@color/ephemera_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="Theme.Ephemera.IncomingCall" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/ephemera_background</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowShowWhenLocked">true</item>
+        <item name="android:windowTurnScreenOn">true</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
